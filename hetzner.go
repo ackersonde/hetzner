@@ -16,7 +16,7 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-var sshPrivateKeyFilePath = "/home/ackersond/.ssh/id_rsa"
+var sshPrivateKeyFilePath = "/home/runner/.ssh/id_rsa"
 var envFile = "/tmp/new_digital_ocean_droplet_params"
 
 func main() {
