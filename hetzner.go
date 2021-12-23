@@ -42,7 +42,7 @@ func main() {
 	*/
 
 	createServer(client)
-	deleteServersAndDeployKeys(client)
+	//deleteServersAndDeployKeys(client)
 }
 
 func listVolume(client *hcloud.Client) {
