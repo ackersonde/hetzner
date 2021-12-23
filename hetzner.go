@@ -18,6 +18,7 @@ import (
 
 var sshPrivateKeyFilePath = "/home/runner/.ssh/id_rsa"
 var envFile = "/tmp/new_digital_ocean_droplet_params"
+var traefikLabelSel = "project=traefik"
 
 func main() {
 	client := hcloud.NewClient(hcloud.WithToken(os.Getenv("CTX_HETZNER_API_TOKEN")))
@@ -35,11 +36,13 @@ func main() {
 	for _, image := range images {
 		fmt.Printf("image[%d] %s\n", image.ID, image.Name)
 	}
+
+	existingServer := getExistingTraefikServer(client)
+	fmt.Printf("%d : %s\n", existingServer.ID, existingServer.PublicNet.IPv6.IP)
 	*/
 
 	createServer(client)
-
-	deleteServers(client)
+	deleteServersAndDeployKeys(client)
 }
 
 func listVolume(client *hcloud.Client) {
@@ -106,17 +109,29 @@ func createServer(client *hcloud.Client) {
 	})
 }
 
-func deleteServers(client *hcloud.Client) {
+func deleteServersAndDeployKeys(client *hcloud.Client) {
+	ctx := context.Background()
 	opts := hcloud.ServerListOpts{ListOpts: hcloud.ListOpts{LabelSelector: "delete=true"}}
-	servers, _ := client.Server.AllWithOpts(context.Background(), opts)
+	servers, _ := client.Server.AllWithOpts(ctx, opts)
 	for _, server := range servers {
-		resultDelete, _ := client.Server.Delete(context.Background(), server)
-		log.Printf("DELETED %v\n", resultDelete)
+		_, err := client.Server.Delete(ctx, server)
+		if err == nil {
+			log.Printf("DELETED %s\n", server.Name)
+		} else {
+			log.Fatalf("Unable to delete %s !!!\n", server.Name)
+		}
+	}
+
+	deployKeys, _ := client.SSHKey.AllWithOpts(ctx, hcloud.SSHKeyListOpts{
+		ListOpts: hcloud.ListOpts{LabelSelector: traefikLabelSel},
+	})
+	for _, deployKey := range deployKeys {
+		client.SSHKey.Delete(ctx, deployKey)
 	}
 }
 
 func getExistingTraefikServer(client *hcloud.Client) *hcloud.Server {
-	opts := hcloud.ServerListOpts{ListOpts: hcloud.ListOpts{LabelSelector: "project=traefik"}}
+	opts := hcloud.ServerListOpts{ListOpts: hcloud.ListOpts{LabelSelector: traefikLabelSel}}
 	existingServers, _ := client.Server.AllWithOpts(context.Background(), opts)
 	server := new(hcloud.Server)
 	if len(existingServers) == 1 {
@@ -143,6 +158,7 @@ func createSSHKey(client *hcloud.Client, githubBuild string) *hcloud.SSHKey {
 	createRequest := hcloud.SSHKeyCreateOpts{
 		Name:      githubBuild + "SSHkey",
 		PublicKey: string(pubKeyBytes),
+		Labels:    map[string]string{"project": "traefik"},
 	}
 
 	key, _, err := client.SSHKey.Create(context.Background(), createRequest)
