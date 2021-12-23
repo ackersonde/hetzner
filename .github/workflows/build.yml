@@ -1,4 +1,4 @@
-name: Deploy Heztner Server
+name: Deploy Hetzner Server
 
 on:
   push:
