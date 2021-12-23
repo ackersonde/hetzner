@@ -79,4 +79,4 @@ EOF
 
 # harden SSH - remove after firewall rules tightened if you'd like
 sed -i -e '/^\(#\|\)PasswordAuthentication/s/^.*$/PasswordAuthentication no/' /etc/ssh/sshd_config
-service ssh restart
+# service ssh restart
