@@ -1,0 +1,42 @@
+name: Deploy Heztner Server
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      ca_pub_fingerprint:
+        description: fingerprint of CA signed user cert
+        required: false
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
+      - name: Build application
+        env:
+          CTX_HETZNER_API_TOKEN: ${{ secrets.CTX_HETZNER_API_TOKEN }}
+          CTX_HETZNER_VAULT_VOLUME_ID: ${{ secrets.CTX_HETZNER_VAULT_VOLUME_ID }}
+          CTX_ACKDE_HOST_SSH_KEY_PUB_B64: ${{ secrets.CTX_ACKDE_HOST_SSH_KEY_PUB_B64 }}
+          CTX_ACKDE_HOST_SSH_KEY_PRIV_B64: ${{ secrets.CTX_ACKDE_HOST_SSH_KEY_PRIV_B64 }}
+          CTX_SERVER_DEPLOY_CACERT_B64: ${{ secrets.CTX_SERVER_DEPLOY_CACERT_B64 }}
+          CTX_SERVER_DEPLOY_SECRET_B64: ${{ secrets.CTX_SERVER_DEPLOY_SECRET_B64 }}
+          CTX_SERVER_DEPLOY_PUBLIC_B64: ${{ secrets.CTX_SERVER_DEPLOY_PUBLIC_B64 }}
+          ACME_JSON: ${{ secrets.CTX_ACME_JSON }}
+          SYNCTHING_CONFIG: ${{ secrets.SYNCTHING_CONFIG }}
+          SYNCTHING_KEY: ${{ secrets.SYNCTHING_KEY }}
+          SYNCTHING_CERT: ${{ secrets.SYNCTHING_CERT }}
+        run: |
+          go mod tidy
+          go build hetzner.go
+
+          envsubst '${CTX_ACKDE_HOST_SSH_KEY_PRIV_B64} ${CTX_ACKDE_HOST_SSH_KEY_PUB_B64} ${CTX_SERVER_DEPLOY_CACERT_B64} ${CTX_SERVER_DEPLOY_SECRET_B64} ${CTX_SERVER_DEPLOY_PUBLIC_B64} ${ACME_JSON} ${SYNCTHING_CONFIG} ${SYNCTHING_KEY} ${SYNCTHING_CERT}' < scripts/raw_ubuntu_userdata.sh > ubuntu_userdata.sh
+
+          mkdir ~/.ssh # for new RSA key created in next step
+          ./hetzner -fn=createServer -tag=traefik
+
+          curl -s -o /dev/null -X POST -d token=${{ secrets.CTX_SLACK_NOTIFICATIONS_TOKEN }} -d channel=C092UE0H4 \
+            -d text="<https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID | $GITHUB_REPOSITORY @ $GITHUB_RUN_ID>" \
+            https://slack.com/api/chat.postMessage
