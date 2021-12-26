@@ -62,7 +62,7 @@ jobs:
           ssh-keygen -f "/home/runner/.ssh/known_hosts" -R $NEW_SERVER_IPV4
 
           # begin deployment to Hetzner
-          scp -o StrictHostKeyChecking=no scripts/dynamic_conf.yml /tmp/new_hetzner_server_paramsroot@$NEW_SERVER_IPV4:~/traefik/
+          scp -o StrictHostKeyChecking=no scripts/dynamic_conf.yml /tmp/new_hetzner_server_params root@$NEW_SERVER_IPV4:~/traefik/
 
           ./hetzner -fn=cleanupDeploy
 

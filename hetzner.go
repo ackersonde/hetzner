@@ -132,7 +132,9 @@ func createServer(client *hcloud.Client, tag string) {
 
 	err = ioutil.WriteFile(envFile, envVarsFile, 0644)
 	if err != nil {
-		fmt.Printf("Failed to write %s: %s", envFile, err)
+		fmt.Printf("Failed to write %s: %s\n", envFile, err)
+	} else {
+		fmt.Printf("wrote %s\n", envFile)
 	}
 
 	// update existingServer Label with "delete":"true" !
