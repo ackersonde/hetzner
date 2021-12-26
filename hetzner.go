@@ -49,7 +49,7 @@ func main() {
 		fmt.Printf("image[%d] %s\n", image.ID, image.Name)
 	}
 
-	existingServer := getExistingTraefikServer(client)
+	existingServer := getExistingServer(client)
 	fmt.Printf("%d : %s\n", existingServer.ID, existingServer.PublicNet.IPv6.IP)
 	*/
 }
@@ -115,32 +115,35 @@ func createServer(client *hcloud.Client, tag string) {
 		SSHKeys:    []*hcloud.SSHKey{deploymentKey, myKey},
 	})
 	if err != nil {
-		log.Fatal(err)
+		fmt.Printf("*** unable to create server: %s\n", err)
 	}
 	if result.Server == nil {
-		log.Fatal("no server")
-	}
-
-	// Write key metadata from existing/new servers
-	envVarsFile := []byte(
-		"export NEW_SERVER_IPV4=" + string(result.Server.PublicNet.IPv4.IP) +
-			"\nexport NEW_SERVER_IPV6=" + string(result.Server.PublicNet.IPv6.IP) +
-			"\nexport DEPLOY_KEY_ID=" + strconv.Itoa(deploymentKey.ID) +
-			"\nexport NEW_SERVER_ID=" + strconv.Itoa(result.Server.ID) +
-			"\nexport OLD_SERVER_ID=" + strconv.Itoa(existingServer.ID) +
-			"\nexport OLD_SERVER_IPV6=" + string(existingServer.PublicNet.IPv6.IP))
-
-	err = ioutil.WriteFile(envFile, envVarsFile, 0644)
-	if err != nil {
-		fmt.Printf("Failed to write %s: %s\n", envFile, err)
+		fmt.Printf("*** no server created?\n")
 	} else {
-		fmt.Printf("wrote %s\n", envFile)
-	}
+		// Write key metadata from existing/new servers
+		envVarsFile := []byte(
+			"export NEW_SERVER_IPV4=" + string(result.Server.PublicNet.IPv4.IP) +
+				"\nexport NEW_SERVER_IPV6=" + string(result.Server.PublicNet.IPv6.IP) +
+				"\nexport DEPLOY_KEY_ID=" + strconv.Itoa(deploymentKey.ID) +
+				"\nexport NEW_SERVER_ID=" + strconv.Itoa(result.Server.ID))
 
-	// update existingServer Label with "delete":"true" !
-	client.Server.Update(ctx, existingServer, hcloud.ServerUpdateOpts{
-		Labels: map[string]string{"delete": "true"},
-	})
+		if existingServer.Name != "" {
+			envVarsFile = append(envVarsFile, "\nexport OLD_SERVER_ID="+strconv.Itoa(existingServer.ID)+
+				"\nexport OLD_SERVER_IPV6="+string(existingServer.PublicNet.IPv6.IP)...)
+
+			// update existingServer Label with "delete":"true" !
+			client.Server.Update(ctx, existingServer, hcloud.ServerUpdateOpts{
+				Labels: map[string]string{"delete": "true"},
+			})
+		}
+
+		err = ioutil.WriteFile(envFile, envVarsFile, 0644)
+		if err != nil {
+			fmt.Printf("Failed to write %s: %s\n", envFile, err)
+		} else {
+			fmt.Printf("wrote %s\n", envFile)
+		}
+	}
 }
 
 func cleanupDeploy(client *hcloud.Client) {
