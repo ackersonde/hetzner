@@ -6,9 +6,11 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
+	"net"
 	"os"
 	"strconv"
 
@@ -17,13 +19,23 @@ import (
 )
 
 var sshPrivateKeyFilePath = "/home/runner/.ssh/id_rsa"
-var envFile = "/tmp/new_digital_ocean_droplet_params"
-var traefikLabelSel = "project=traefik"
+var envFile = "/tmp/new_hetzner_server_params"
 
 func main() {
 	client := hcloud.NewClient(hcloud.WithToken(os.Getenv("CTX_HETZNER_API_TOKEN")))
 
-	listVolume(client)
+	fnPtr := flag.String("fn", "createNewServer|cleanupDeploy|firewallSSH|createSnapshot", "which function to run")
+	ipPtr := flag.String("ip", "<internet ip addr of github action instance>", "see prev param")
+	tagPtr := flag.String("tag", "traefik", "label with which to associate this resource")
+	flag.Parse()
+
+	if *fnPtr == "createNewServer" {
+		createServer(client, *tagPtr)
+	} else if *fnPtr == "cleanupDeploy" {
+		cleanupDeploy(client)
+	} else if *fnPtr == "firewallSSH" {
+		allowSSHipAddress(client, *ipPtr, *tagPtr)
+	}
 
 	/* For checking out new server & image types:
 	types, _ := client.ServerType.All(context.Background())
@@ -40,9 +52,29 @@ func main() {
 	existingServer := getExistingTraefikServer(client)
 	fmt.Printf("%d : %s\n", existingServer.ID, existingServer.PublicNet.IPv6.IP)
 	*/
+}
 
-	createServer(client)
-	deleteServersAndDeployKeys(client)
+func allowSSHipAddress(client *hcloud.Client, ipAddr string, tag string) {
+	ctx := context.Background()
+
+	opts := hcloud.FirewallCreateOpts{
+		Name:   "githubBuildDeploy",
+		Labels: map[string]string{"access": "github"},
+		Rules: []hcloud.FirewallRule{{
+			Direction: hcloud.FirewallRuleDirectionIn,
+			SourceIPs: []net.IPNet{{
+				IP:   net.ParseIP(ipAddr),
+				Mask: net.CIDRMask(32, 32),
+			}},
+			Protocol: "tcp",
+			Port:     String("22"),
+		}},
+		ApplyTo: []hcloud.FirewallResource{{
+			Type:          hcloud.FirewallResourceTypeLabelSelector,
+			LabelSelector: &hcloud.FirewallResourceLabelSelector{Selector: "label=" + tag},
+		}},
+	}
+	client.Firewall.Create(ctx, opts)
 }
 
 func listVolume(client *hcloud.Client) {
@@ -58,11 +90,11 @@ func listVolume(client *hcloud.Client) {
 	}
 }
 
-func createServer(client *hcloud.Client) {
+func createServer(client *hcloud.Client, tag string) {
 	ctx := context.Background()
 
 	// find existing server
-	existingServer := getExistingTraefikServer(client)
+	existingServer := getExistingServer(client, tag)
 
 	// prepare new server
 	myKey, _, _ := client.SSHKey.GetByName(ctx, "ackersond")
@@ -76,7 +108,7 @@ func createServer(client *hcloud.Client) {
 		ServerType: &hcloud.ServerType{ID: 22},  // AMD 2 core, 2GB Ram
 		Image:      &hcloud.Image{ID: 15512617}, // ubuntu-20.04
 		Location:   &hcloud.Location{Name: "nbg1"},
-		Labels:     map[string]string{"project": "traefik"},
+		Labels:     map[string]string{"label": tag},
 		Volumes:    []*hcloud.Volume{{ID: volumeID}},
 		Automount:  Bool(false),
 		UserData:   string(ubuntuUserData),
@@ -109,7 +141,7 @@ func createServer(client *hcloud.Client) {
 	})
 }
 
-func deleteServersAndDeployKeys(client *hcloud.Client) {
+func cleanupDeploy(client *hcloud.Client) {
 	ctx := context.Background()
 	opts := hcloud.ServerListOpts{ListOpts: hcloud.ListOpts{LabelSelector: "delete=true"}}
 	servers, _ := client.Server.AllWithOpts(ctx, opts)
@@ -123,15 +155,22 @@ func deleteServersAndDeployKeys(client *hcloud.Client) {
 	}
 
 	deployKeys, _ := client.SSHKey.AllWithOpts(ctx, hcloud.SSHKeyListOpts{
-		ListOpts: hcloud.ListOpts{LabelSelector: traefikLabelSel},
+		ListOpts: hcloud.ListOpts{LabelSelector: "access=github"},
 	})
 	for _, deployKey := range deployKeys {
 		client.SSHKey.Delete(ctx, deployKey)
 	}
+
+	firewalls, _ := client.Firewall.AllWithOpts(ctx, hcloud.FirewallListOpts{
+		ListOpts: hcloud.ListOpts{LabelSelector: "access=github"},
+	})
+	for _, firewall := range firewalls {
+		client.Firewall.Delete(ctx, firewall)
+	}
 }
 
-func getExistingTraefikServer(client *hcloud.Client) *hcloud.Server {
-	opts := hcloud.ServerListOpts{ListOpts: hcloud.ListOpts{LabelSelector: traefikLabelSel}}
+func getExistingServer(client *hcloud.Client, tag string) *hcloud.Server {
+	opts := hcloud.ServerListOpts{ListOpts: hcloud.ListOpts{LabelSelector: "label=" + tag}}
 	existingServers, _ := client.Server.AllWithOpts(context.Background(), opts)
 	server := new(hcloud.Server)
 	if len(existingServers) == 1 {
@@ -142,6 +181,8 @@ func getExistingTraefikServer(client *hcloud.Client) *hcloud.Server {
 }
 
 func Bool(b bool) *bool { return &b }
+
+func String(s string) *string { return &s }
 
 func createSSHKey(client *hcloud.Client, githubBuild string) *hcloud.SSHKey {
 	privateKeyPair, err := rsa.GenerateKey(rand.Reader, 4096)
@@ -158,7 +199,7 @@ func createSSHKey(client *hcloud.Client, githubBuild string) *hcloud.SSHKey {
 	createRequest := hcloud.SSHKeyCreateOpts{
 		Name:      githubBuild + "SSHkey",
 		PublicKey: string(pubKeyBytes),
-		Labels:    map[string]string{"project": "traefik"},
+		Labels:    map[string]string{"access": "github"},
 	}
 
 	key, _, err := client.SSHKey.Create(context.Background(), createRequest)

@@ -39,6 +39,35 @@ jobs:
           mkdir ~/.ssh # for new RSA key created in next step
           ./hetzner -fn=createServer -tag=traefik
 
+          # prepare new Hetzner server for Github deployment
+          public_ip_address=$(curl -s https://checkip.amazonaws.com)
+          source /tmp/new_hetzner_server_params
+
+          ./hetzner -fn=firewallSSH -tag=traefik -ip=$public_ip_address
+
+          sudo apt-get -y install nmap
+          while [ `nmap $NEW_SERVER_IPV4 -PN -p ssh | egrep 'open|closed|filtered' | awk '{print $2}'` == "closed" ]
+          do
+            echo "ssh not available..."
+            sleep 5
+          done
+
+          ssh -o StrictHostKeyChecking=no root@$NEW_SERVER_IPV4 "\
+            mkdir -p traefik/logs &&
+            cloud-init status --wait > /dev/null 2>&1
+            [ $? -ne 0 ] && echo 'Cloud-init failed' && exit 1
+            echo 'Cloud-init succeeded at ' `date -R`  > ~/post-cloud-init.log"
+
+          # cloud-init setup new host keys - let's ditch the orig ones
+          ssh-keygen -f "/home/runner/.ssh/known_hosts" -R $NEW_SERVER_IPV4
+
+          # begin deployment to Hetzner
+          scp -o StrictHostKeyChecking=no scripts/dynamic_conf.yml /tmp/new_hetzner_server_paramsroot@$NEW_SERVER_IPV4:~/traefik/
+
+          ./hetzner -fn=cleanupDeploy
+
+          rm ubuntu_userdata.sh ~/.ssh/* /tmp/new_hetzner_server_params
+
           curl -s -o /dev/null -X POST -d token=${{ secrets.CTX_SLACK_NOTIFICATIONS_TOKEN }} -d channel=C092UE0H4 \
             -d text="<https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID | $GITHUB_REPOSITORY @ $GITHUB_RUN_ID>" \
             https://slack.com/api/chat.postMessage
