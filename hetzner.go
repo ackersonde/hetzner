@@ -115,10 +115,10 @@ func createServer(client *hcloud.Client, tag string) {
 		SSHKeys:    []*hcloud.SSHKey{deploymentKey, myKey},
 	})
 	if err != nil {
-		fmt.Printf("*** unable to create server: %s\n", err)
+		log.Fatalf("*** unable to create server: %s\n", err)
 	}
 	if result.Server == nil {
-		fmt.Printf("*** no server created?\n")
+		log.Fatalf("*** no server created?\n")
 	} else {
 		// Write key metadata from existing/new servers
 		envVarsFile := []byte(
@@ -139,7 +139,7 @@ func createServer(client *hcloud.Client, tag string) {
 
 		err = ioutil.WriteFile(envFile, envVarsFile, 0644)
 		if err != nil {
-			fmt.Printf("Failed to write %s: %s\n", envFile, err)
+			log.Fatalf("Failed to write %s: %s\n", envFile, err)
 		} else {
 			fmt.Printf("wrote %s\n", envFile)
 		}
