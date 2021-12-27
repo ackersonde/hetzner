@@ -118,8 +118,10 @@ func createServer(client *hcloud.Client, tag string) {
 
 	ubuntuUserData, _ := ioutil.ReadFile("ubuntu_userdata.sh")
 
+	timestamp := strconv.FormatInt(time.Now().Unix(), 10)
+
 	result, _, err := client.Server.Create(ctx, hcloud.ServerCreateOpts{
-		Name:       "h" + os.Getenv("GITHUB_RUN_ID") + ".ackerson.de",
+		Name:       "h" + os.Getenv("GITHUB_RUN_ID") + "-" + timestamp + ".ackerson.de",
 		ServerType: &hcloud.ServerType{ID: 22},  // AMD 2 core, 2GB Ram
 		Image:      &hcloud.Image{ID: 15512617}, // ubuntu-20.04
 		Location:   &hcloud.Location{Name: "nbg1"},
