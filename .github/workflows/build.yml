@@ -44,7 +44,7 @@ jobs:
           source /tmp/new_hetzner_server_params
 
           ./hetzner -fn=firewallSSH -tag=traefik -ip=$public_ip_address
-          ls -lrt /tmp/new_hetzner_server_params
+
           cat /tmp/new_hetzner_server_params
           env | grep NEW_SERVER
 

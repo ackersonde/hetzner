@@ -124,18 +124,20 @@ func createServer(client *hcloud.Client, tag string) {
 		envVarsFile := []byte(
 			"export NEW_SERVER_IPV4=" + string(result.Server.PublicNet.IPv4.IP) +
 				"\nexport NEW_SERVER_IPV6=" + string(result.Server.PublicNet.IPv6.IP) +
-				"\nexport DEPLOY_KEY_ID=" + strconv.Itoa(deploymentKey.ID) +
 				"\nexport NEW_SERVER_ID=" + strconv.Itoa(result.Server.ID))
 
 		if existingServer.Name != "" {
-			envVarsFile = append(envVarsFile, "\nexport OLD_SERVER_ID="+strconv.Itoa(existingServer.ID)+
-				"\nexport OLD_SERVER_IPV6="+string(existingServer.PublicNet.IPv6.IP)...)
+			envVarsFile = append(envVarsFile,
+				"\nexport OLD_SERVER_ID="+strconv.Itoa(existingServer.ID)+
+					"\nexport OLD_SERVER_IPV6="+string(existingServer.PublicNet.IPv6.IP)...)
 
 			// update existingServer Label with "delete":"true" !
 			client.Server.Update(ctx, existingServer, hcloud.ServerUpdateOpts{
 				Labels: map[string]string{"delete": "true"},
 			})
 		}
+
+		fmt.Printf("file: %s\n", envVarsFile)
 
 		err = ioutil.WriteFile(envFile, envVarsFile, 0644)
 		if err != nil {
