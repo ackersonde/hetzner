@@ -58,7 +58,7 @@ func allowSSHipAddress(client *hcloud.Client, ipAddr string, tag string) {
 	ctx := context.Background()
 
 	opts := hcloud.FirewallCreateOpts{
-		Name:   "githubBuildDeploy",
+		Name:   "githubBuildDeploy-" + os.Getenv("GITHUB_RUN_ID"),
 		Labels: map[string]string{"access": "github"},
 		Rules: []hcloud.FirewallRule{{
 			Direction: hcloud.FirewallRuleDirectionIn,
@@ -94,13 +94,13 @@ func createServer(client *hcloud.Client, tag string) {
 	ctx := context.Background()
 
 	// find existing server
-	existingServer := getExistingServer(client, tag)
+	volumeID, _ := strconv.Atoi(os.Getenv("CTX_HETZNER_VAULT_VOLUME_ID"))
+	existingServer := getExistingServer(client, volumeID, tag)
 
 	// prepare new server
 	myKey, _, _ := client.SSHKey.GetByName(ctx, "ackersond")
 	deploymentKey := createSSHKey(client, os.Getenv("GITHUB_RUN_ID"))
 
-	volumeID, _ := strconv.Atoi(os.Getenv("CTX_HETZNER_VAULT_VOLUME_ID"))
 	ubuntuUserData, _ := ioutil.ReadFile("ubuntu_userdata.sh")
 
 	result, _, err := client.Server.Create(ctx, hcloud.ServerCreateOpts{
@@ -120,16 +120,10 @@ func createServer(client *hcloud.Client, tag string) {
 	if result.Server == nil {
 		log.Fatalf("*** no server created?\n")
 	} else {
-		// Write key metadata from existing/new servers
-		envVarsFile := []byte(
-			"export NEW_SERVER_IPV4=" + result.Server.PublicNet.IPv4.IP.String() +
-				"\nexport NEW_SERVER_IPV6=" + string(result.Server.PublicNet.IPv6.IP.String()) +
-				"\nexport NEW_SERVER_ID=" + strconv.Itoa(result.Server.ID))
-
+		existingServerVars := ""
 		if existingServer.Name != "" {
-			envVarsFile = append(envVarsFile,
-				"\nexport OLD_SERVER_ID="+strconv.Itoa(existingServer.ID)+
-					"\nexport OLD_SERVER_IPV6="+string(existingServer.PublicNet.IPv6.IP)...)
+			existingServerVars = "\nexport OLD_SERVER_ID=" + strconv.Itoa(existingServer.ID) +
+				"\nexport OLD_SERVER_IPV6=" + existingServer.PublicNet.IPv6.IP.String()
 
 			// update existingServer Label with "delete":"true" !
 			client.Server.Update(ctx, existingServer, hcloud.ServerUpdateOpts{
@@ -137,7 +131,12 @@ func createServer(client *hcloud.Client, tag string) {
 			})
 		}
 
-		fmt.Printf("file: %s\n", envVarsFile)
+		// Write key metadata from existing/new servers
+		envVarsFile := []byte(
+			"export NEW_SERVER_IPV4=" + result.Server.PublicNet.IPv4.IP.String() +
+				"\nexport NEW_SERVER_IPV6=" + string(result.Server.PublicNet.IPv6.IP.String()) +
+				"\nexport NEW_SERVER_ID=" + strconv.Itoa(result.Server.ID) +
+				existingServerVars)
 
 		err = ioutil.WriteFile(envFile, envVarsFile, 0644)
 		if err != nil {
@@ -176,12 +175,20 @@ func cleanupDeploy(client *hcloud.Client) {
 	}
 }
 
-func getExistingServer(client *hcloud.Client, tag string) *hcloud.Server {
+func getExistingServer(client *hcloud.Client, volumeID string, tag string) *hcloud.Server {
+	ctx := context.Background()
 	opts := hcloud.ServerListOpts{ListOpts: hcloud.ListOpts{LabelSelector: "label=" + tag}}
-	existingServers, _ := client.Server.AllWithOpts(context.Background(), opts)
+	existingServers, _ := client.Server.AllWithOpts(ctx, opts)
 	server := new(hcloud.Server)
 	if len(existingServers) == 1 {
 		server = existingServers[0]
+	}
+
+	// detach existing volume
+	if volumeID != "" {
+		volumeIDint, _ := strconv.Atoi(volumeID)
+		volume, _, _ := client.Volume.GetByID(ctx, volumeIDint)
+		client.Volume.Detach(ctx, volume)
 	}
 
 	return server
