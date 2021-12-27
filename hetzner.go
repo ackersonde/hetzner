@@ -25,7 +25,7 @@ var envFile = "/tmp/new_hetzner_server_params"
 func main() {
 	client := hcloud.NewClient(hcloud.WithToken(os.Getenv("CTX_HETZNER_API_TOKEN")))
 
-	fnPtr := flag.String("fn", "createServer|cleanupDeploy|firewallSSH|createSnapshot", "which function to run")
+	fnPtr := flag.String("fn", "createServer|cleanupDeploy|firewallSSH|createSnapshot|checkServer", "which function to run")
 	ipPtr := flag.String("ip", "<internet ip addr of github action instance>", "see prev param")
 	tagPtr := flag.String("tag", "traefik", "label with which to associate this resource")
 	serverPtr := flag.Int("serverID", 0, "server ID to check")
@@ -37,6 +37,8 @@ func main() {
 		cleanupDeploy(client, *tagPtr)
 	} else if *fnPtr == "firewallSSH" {
 		allowSSHipAddress(client, *ipPtr, *tagPtr, *serverPtr)
+	} else if *fnPtr == "checkServer" {
+		checkServer(client, *serverPtr)
 	}
 
 	/* For checking out new server & image types:
@@ -79,6 +81,11 @@ func allowSSHipAddress(client *hcloud.Client, ipAddr string, tag string, serverI
 	}
 	client.Firewall.Create(ctx, opts)
 
+	checkServer(client, serverID)
+}
+
+func checkServer(client *hcloud.Client, serverID int) {
+	ctx := context.Background()
 	if serverID != 0 {
 		server, _, _ := client.Server.GetByID(ctx, serverID)
 		if server.Status != hcloud.ServerStatusRunning {

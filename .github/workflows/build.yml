@@ -49,7 +49,8 @@ jobs:
           while [ `nmap "$NEW_SERVER_IPV4" -PN -p ssh | egrep 'open|closed|filtered' | awk '{print $2}'` != "open" ]
           do
             echo "ssh not available..."
-            sleep 5
+            ./hetzner -fn=checkServer -serverID=$NEW_SERVER_ID
+            sleep 3
           done
 
           ssh -o StrictHostKeyChecking=no root@$NEW_SERVER_IPV4 "\
