@@ -28,6 +28,7 @@ func main() {
 	fnPtr := flag.String("fn", "createServer|cleanupDeploy|firewallSSH|createSnapshot", "which function to run")
 	ipPtr := flag.String("ip", "<internet ip addr of github action instance>", "see prev param")
 	tagPtr := flag.String("tag", "traefik", "label with which to associate this resource")
+	serverPtr := flag.Int("serverID", 0, "server ID to check")
 	flag.Parse()
 
 	if *fnPtr == "createServer" {
@@ -35,7 +36,7 @@ func main() {
 	} else if *fnPtr == "cleanupDeploy" {
 		cleanupDeploy(client, *tagPtr)
 	} else if *fnPtr == "firewallSSH" {
-		allowSSHipAddress(client, *ipPtr, *tagPtr)
+		allowSSHipAddress(client, *ipPtr, *tagPtr, *serverPtr)
 	}
 
 	/* For checking out new server & image types:
@@ -55,7 +56,7 @@ func main() {
 	*/
 }
 
-func allowSSHipAddress(client *hcloud.Client, ipAddr string, tag string) {
+func allowSSHipAddress(client *hcloud.Client, ipAddr string, tag string, serverID int) {
 	ctx := context.Background()
 
 	opts := hcloud.FirewallCreateOpts{
@@ -77,6 +78,13 @@ func allowSSHipAddress(client *hcloud.Client, ipAddr string, tag string) {
 		}},
 	}
 	client.Firewall.Create(ctx, opts)
+
+	if serverID != 0 {
+		server, _, _ := client.Server.GetByID(ctx, serverID)
+		if server.Status != hcloud.ServerStatusRunning {
+			client.Server.Poweron(ctx, server)
+		}
+	}
 }
 
 func listVolume(client *hcloud.Client) {
@@ -158,9 +166,9 @@ func waitForAction(client *hcloud.Client, action *hcloud.Action, err error) {
 	if err == nil && action.Status != "success" {
 		for {
 			action, _, _ := client.Action.GetByID(context.Background(), action.ID)
-			if action.Status == "success" {
+			if action.Status == hcloud.ActionStatusSuccess {
 				break
-			} else if action.Status == "running" {
+			} else if action.Status == hcloud.ActionStatusRunning {
 				log.Printf("action %s ... sleeping 3secs\n", action.Status)
 				time.Sleep(3 * time.Second)
 			} else {

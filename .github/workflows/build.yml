@@ -43,7 +43,7 @@ jobs:
           public_ip_address=$(curl -s https://checkip.amazonaws.com)
           source /tmp/new_hetzner_server_params
 
-          ./hetzner -fn=firewallSSH -tag=traefik -ip=$public_ip_address
+          ./hetzner -fn=firewallSSH -tag=traefik -ip=$public_ip_address -serverID=$NEW_SERVER_ID
 
           sudo apt-get -y install nmap
           while [ `nmap "$NEW_SERVER_IPV4" -PN -p ssh | egrep 'open|closed|filtered' | awk '{print $2}'` != "open" ]
