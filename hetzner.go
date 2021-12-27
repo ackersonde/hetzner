@@ -101,7 +101,8 @@ func createServer(client *hcloud.Client, tag string) {
 	// detach existing volume
 	volumeID, _ := strconv.Atoi(os.Getenv("CTX_HETZNER_VAULT_VOLUME_ID"))
 	volume, _, _ := client.Volume.GetByID(ctx, volumeID)
-	client.Volume.Detach(ctx, volume)
+	action, _, err := client.Volume.Detach(ctx, volume)
+	waitForAction(client, action, err)
 
 	// prepare new server
 	myKey, _, _ := client.SSHKey.GetByName(ctx, "ackersond")
@@ -153,6 +154,18 @@ func createServer(client *hcloud.Client, tag string) {
 	}
 }
 
+func waitForAction(client *hcloud.Client, action *hcloud.Action, err error) {
+	if err == nil && action.Status != "success" {
+		for {
+			action, _, _ := client.Action.GetByID(context.Background(), action.ID)
+			if action.Status == "success" {
+				break
+			} else {
+				time.Sleep(3 * time.Second)
+			}
+		}
+	}
+}
 func cleanupDeploy(client *hcloud.Client, tag string) {
 	ctx := context.Background()
 	opts := hcloud.ServerListOpts{ListOpts: hcloud.ListOpts{LabelSelector: "delete=true"}}
@@ -189,10 +202,10 @@ func cleanupDeploy(client *hcloud.Client, tag string) {
 		},
 	}
 	for _, firewall := range firewalls {
-		client.Firewall.RemoveResources(ctx, firewall, resources)
-		time.Sleep(3 * time.Second)
+		actions, _, err := client.Firewall.RemoveResources(ctx, firewall, resources)
+		waitForAction(client, actions[0], err)
 
-		_, err := client.Firewall.Delete(ctx, firewall)
+		_, err = client.Firewall.Delete(ctx, firewall)
 		if err == nil {
 			log.Printf("DELETED firewall %s\n", firewall.Name)
 		} else {
