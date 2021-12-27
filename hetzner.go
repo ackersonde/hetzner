@@ -175,7 +175,7 @@ func cleanupDeploy(client *hcloud.Client) {
 	}
 }
 
-func getExistingServer(client *hcloud.Client, volumeID string, tag string) *hcloud.Server {
+func getExistingServer(client *hcloud.Client, volumeID int, tag string) *hcloud.Server {
 	ctx := context.Background()
 	opts := hcloud.ServerListOpts{ListOpts: hcloud.ListOpts{LabelSelector: "label=" + tag}}
 	existingServers, _ := client.Server.AllWithOpts(ctx, opts)
@@ -185,9 +185,8 @@ func getExistingServer(client *hcloud.Client, volumeID string, tag string) *hclo
 	}
 
 	// detach existing volume
-	if volumeID != "" {
-		volumeIDint, _ := strconv.Atoi(volumeID)
-		volume, _, _ := client.Volume.GetByID(ctx, volumeIDint)
+	if volumeID != 0 {
+		volume, _, _ := client.Volume.GetByID(ctx, volumeID)
 		client.Volume.Detach(ctx, volume)
 	}
 
