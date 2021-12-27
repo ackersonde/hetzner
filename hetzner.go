@@ -170,7 +170,14 @@ func cleanupDeploy(client *hcloud.Client) {
 	firewalls, _ := client.Firewall.AllWithOpts(ctx, hcloud.FirewallListOpts{
 		ListOpts: hcloud.ListOpts{LabelSelector: "access=github"},
 	})
+	resources := []hcloud.FirewallResource{
+		{
+			Type:          hcloud.FirewallResourceTypeLabelSelector,
+			LabelSelector: &hcloud.FirewallResourceLabelSelector{Selector: "label=traefik"},
+		},
+	}
 	for _, firewall := range firewalls {
+		client.Firewall.RemoveResources(ctx, firewall, resources)
 		client.Firewall.Delete(ctx, firewall)
 	}
 }
