@@ -45,9 +45,6 @@ jobs:
 
           ./hetzner -fn=firewallSSH -tag=traefik -ip=$public_ip_address
 
-          cat /tmp/new_hetzner_server_params
-          env | grep NEW_SERVER
-
           sudo apt-get -y install nmap
           while [ `nmap "$NEW_SERVER_IPV4" -PN -p ssh | egrep 'open|closed|filtered' | awk '{print $2}'` == "closed" ]
           do

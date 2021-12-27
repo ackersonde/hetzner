@@ -13,6 +13,7 @@ import (
 	"net"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/hetznercloud/hcloud-go/hcloud"
 	"golang.org/x/crypto/ssh"
@@ -154,9 +155,9 @@ func cleanupDeploy(client *hcloud.Client) {
 	for _, server := range servers {
 		_, err := client.Server.Delete(ctx, server)
 		if err == nil {
-			log.Printf("DELETED %s\n", server.Name)
+			log.Printf("DELETED Server %s\n", server.Name)
 		} else {
-			log.Fatalf("Unable to delete %s !!!\n", server.Name)
+			log.Fatalf("Unable to delete server %s (%s)!!!\n", server.Name, err)
 		}
 	}
 
@@ -164,7 +165,12 @@ func cleanupDeploy(client *hcloud.Client) {
 		ListOpts: hcloud.ListOpts{LabelSelector: "access=github"},
 	})
 	for _, deployKey := range deployKeys {
-		client.SSHKey.Delete(ctx, deployKey)
+		_, err := client.SSHKey.Delete(ctx, deployKey)
+		if err == nil {
+			log.Printf("DELETED SSH key %s\n", deployKey.Name)
+		} else {
+			log.Fatalf("Unable to delete SSH key %s (%s) !!!\n", deployKey.Name, err)
+		}
 	}
 
 	firewalls, _ := client.Firewall.AllWithOpts(ctx, hcloud.FirewallListOpts{
@@ -178,7 +184,14 @@ func cleanupDeploy(client *hcloud.Client) {
 	}
 	for _, firewall := range firewalls {
 		client.Firewall.RemoveResources(ctx, firewall, resources)
-		client.Firewall.Delete(ctx, firewall)
+		time.Sleep(3 * time.Second)
+
+		_, err := client.Firewall.Delete(ctx, firewall)
+		if err == nil {
+			log.Printf("DELETED firewall %s\n", firewall.Name)
+		} else {
+			log.Fatalf("Unable to delete FW %s (%s) !!!\n", firewall.Name, err)
+		}
 	}
 }
 
