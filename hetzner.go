@@ -149,7 +149,7 @@ func createServer(client *hcloud.Client, tag string) {
 		if err != nil {
 			log.Fatalf("Failed to write %s: %s\n", envFile, err)
 		} else {
-			fmt.Printf("wrote %s\n", envFile)
+			log.Printf("wrote %s\n", envFile)
 		}
 	}
 }
@@ -160,12 +160,18 @@ func waitForAction(client *hcloud.Client, action *hcloud.Action, err error) {
 			action, _, _ := client.Action.GetByID(context.Background(), action.ID)
 			if action.Status == "success" {
 				break
-			} else {
+			} else if action.Status == "running" {
+				log.Printf("action %s ... sleeping 3secs\n", action.Status)
 				time.Sleep(3 * time.Second)
+			} else {
+				log.Printf("action failed %s\n", action.ErrorMessage)
 			}
 		}
+	} else if err != nil {
+		log.Printf("Unable to perform action: %s\n", err)
 	}
 }
+
 func cleanupDeploy(client *hcloud.Client, tag string) {
 	ctx := context.Background()
 	opts := hcloud.ServerListOpts{ListOpts: hcloud.ListOpts{LabelSelector: "delete=true"}}
@@ -209,7 +215,12 @@ func cleanupDeploy(client *hcloud.Client, tag string) {
 		if err == nil {
 			log.Printf("DELETED firewall %s\n", firewall.Name)
 		} else {
-			log.Fatalf("Unable to delete FW %s (%s) !!!\n", firewall.Name, err)
+			actions, _, err := client.Firewall.RemoveResources(ctx, firewall, resources)
+			waitForAction(client, actions[0], err)
+			_, err = client.Firewall.Delete(ctx, firewall)
+			if err != nil {
+				log.Printf("Unable to delete FW %s (%s) !!!\n", firewall.Name, err)
+			}
 		}
 	}
 }
