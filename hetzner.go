@@ -122,8 +122,8 @@ func createServer(client *hcloud.Client, tag string) {
 	} else {
 		// Write key metadata from existing/new servers
 		envVarsFile := []byte(
-			"export NEW_SERVER_IPV4=" + string(result.Server.PublicNet.IPv4.IP) +
-				"\nexport NEW_SERVER_IPV6=" + string(result.Server.PublicNet.IPv6.IP) +
+			"export NEW_SERVER_IPV4=" + result.Server.PublicNet.IPv4.IP.String() +
+				"\nexport NEW_SERVER_IPV6=" + string(result.Server.PublicNet.IPv6.IP.String()) +
 				"\nexport NEW_SERVER_ID=" + strconv.Itoa(result.Server.ID))
 
 		if existingServer.Name != "" {
