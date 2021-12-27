@@ -24,12 +24,12 @@ var envFile = "/tmp/new_hetzner_server_params"
 func main() {
 	client := hcloud.NewClient(hcloud.WithToken(os.Getenv("CTX_HETZNER_API_TOKEN")))
 
-	fnPtr := flag.String("fn", "createNewServer|cleanupDeploy|firewallSSH|createSnapshot", "which function to run")
+	fnPtr := flag.String("fn", "createServer|cleanupDeploy|firewallSSH|createSnapshot", "which function to run")
 	ipPtr := flag.String("ip", "<internet ip addr of github action instance>", "see prev param")
 	tagPtr := flag.String("tag", "traefik", "label with which to associate this resource")
 	flag.Parse()
 
-	if *fnPtr == "createNewServer" {
+	if *fnPtr == "createServer" {
 		createServer(client, *tagPtr)
 	} else if *fnPtr == "cleanupDeploy" {
 		cleanupDeploy(client)
