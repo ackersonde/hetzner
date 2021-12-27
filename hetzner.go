@@ -33,7 +33,7 @@ func main() {
 	if *fnPtr == "createServer" {
 		createServer(client, *tagPtr)
 	} else if *fnPtr == "cleanupDeploy" {
-		cleanupDeploy(client)
+		cleanupDeploy(client, *tagPtr)
 	} else if *fnPtr == "firewallSSH" {
 		allowSSHipAddress(client, *ipPtr, *tagPtr)
 	}
@@ -71,8 +71,9 @@ func allowSSHipAddress(client *hcloud.Client, ipAddr string, tag string) {
 			Port:     String("22"),
 		}},
 		ApplyTo: []hcloud.FirewallResource{{
-			Type:          hcloud.FirewallResourceTypeLabelSelector,
-			LabelSelector: &hcloud.FirewallResourceLabelSelector{Selector: "label=" + tag},
+			Type: hcloud.FirewallResourceTypeLabelSelector,
+			LabelSelector: &hcloud.FirewallResourceLabelSelector{
+				Selector: "label=" + tag},
 		}},
 	}
 	client.Firewall.Create(ctx, opts)
@@ -95,8 +96,12 @@ func createServer(client *hcloud.Client, tag string) {
 	ctx := context.Background()
 
 	// find existing server
+	existingServer := getExistingServer(client, tag)
+
+	// detach existing volume
 	volumeID, _ := strconv.Atoi(os.Getenv("CTX_HETZNER_VAULT_VOLUME_ID"))
-	existingServer := getExistingServer(client, volumeID, tag)
+	volume, _, _ := client.Volume.GetByID(ctx, volumeID)
+	client.Volume.Detach(ctx, volume)
 
 	// prepare new server
 	myKey, _, _ := client.SSHKey.GetByName(ctx, "ackersond")
@@ -123,8 +128,8 @@ func createServer(client *hcloud.Client, tag string) {
 	} else {
 		existingServerVars := ""
 		if existingServer.Name != "" {
-			existingServerVars = "\nexport OLD_SERVER_ID=" + strconv.Itoa(existingServer.ID) +
-				"\nexport OLD_SERVER_IPV6=" + existingServer.PublicNet.IPv6.IP.String()
+			existingServerVars = "\nexport OLD_SERVER_IPV6=" +
+				existingServer.PublicNet.IPv6.IP.String()
 
 			// update existingServer Label with "delete":"true" !
 			client.Server.Update(ctx, existingServer, hcloud.ServerUpdateOpts{
@@ -135,7 +140,7 @@ func createServer(client *hcloud.Client, tag string) {
 		// Write key metadata from existing/new servers
 		envVarsFile := []byte(
 			"export NEW_SERVER_IPV4=" + result.Server.PublicNet.IPv4.IP.String() +
-				"\nexport NEW_SERVER_IPV6=" + string(result.Server.PublicNet.IPv6.IP.String()) +
+				"\nexport NEW_SERVER_IPV6=" + result.Server.PublicNet.IPv6.IP.String() +
 				"\nexport NEW_SERVER_ID=" + strconv.Itoa(result.Server.ID) +
 				existingServerVars)
 
@@ -148,7 +153,7 @@ func createServer(client *hcloud.Client, tag string) {
 	}
 }
 
-func cleanupDeploy(client *hcloud.Client) {
+func cleanupDeploy(client *hcloud.Client, tag string) {
 	ctx := context.Background()
 	opts := hcloud.ServerListOpts{ListOpts: hcloud.ListOpts{LabelSelector: "delete=true"}}
 	servers, _ := client.Server.AllWithOpts(ctx, opts)
@@ -178,8 +183,9 @@ func cleanupDeploy(client *hcloud.Client) {
 	})
 	resources := []hcloud.FirewallResource{
 		{
-			Type:          hcloud.FirewallResourceTypeLabelSelector,
-			LabelSelector: &hcloud.FirewallResourceLabelSelector{Selector: "label=traefik"},
+			Type: hcloud.FirewallResourceTypeLabelSelector,
+			LabelSelector: &hcloud.FirewallResourceLabelSelector{
+				Selector: "label=" + tag},
 		},
 	}
 	for _, firewall := range firewalls {
@@ -195,19 +201,13 @@ func cleanupDeploy(client *hcloud.Client) {
 	}
 }
 
-func getExistingServer(client *hcloud.Client, volumeID int, tag string) *hcloud.Server {
+func getExistingServer(client *hcloud.Client, tag string) *hcloud.Server {
 	ctx := context.Background()
 	opts := hcloud.ServerListOpts{ListOpts: hcloud.ListOpts{LabelSelector: "label=" + tag}}
 	existingServers, _ := client.Server.AllWithOpts(ctx, opts)
 	server := new(hcloud.Server)
 	if len(existingServers) == 1 {
 		server = existingServers[0]
-	}
-
-	// detach existing volume
-	if volumeID != 0 {
-		volume, _, _ := client.Volume.GetByID(ctx, volumeID)
-		client.Volume.Detach(ctx, volume)
 	}
 
 	return server

@@ -64,7 +64,7 @@ jobs:
           # begin deployment to Hetzner
           scp -o StrictHostKeyChecking=no scripts/dynamic_conf.yml /tmp/new_hetzner_server_params root@$NEW_SERVER_IPV4:~/traefik/
 
-          ./hetzner -fn=cleanupDeploy
+          ./hetzner -fn=cleanupDeploy -tag=traefik
 
           rm ubuntu_userdata.sh ~/.ssh/* /tmp/new_hetzner_server_params
 
