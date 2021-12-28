@@ -38,7 +38,7 @@ func main() {
 	} else if *fnPtr == "firewallSSH" {
 		allowSSHipAddress(client, *ipPtr, *tagPtr, *serverPtr)
 	} else if *fnPtr == "checkServer" {
-		checkServer(client, *serverPtr)
+		checkServerPowerSwitch(client, *serverPtr)
 	}
 
 	/* For checking out new server & image types:
@@ -80,11 +80,9 @@ func allowSSHipAddress(client *hcloud.Client, ipAddr string, tag string, serverI
 		}},
 	}
 	client.Firewall.Create(ctx, opts)
-
-	checkServer(client, serverID)
 }
 
-func checkServer(client *hcloud.Client, serverID int) {
+func checkServerPowerSwitch(client *hcloud.Client, serverID int) {
 	ctx := context.Background()
 	if serverID != 0 {
 		server, _, _ := client.Server.GetByID(ctx, serverID)
