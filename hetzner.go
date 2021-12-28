@@ -172,7 +172,7 @@ func createServer(client *hcloud.Client, tag string) {
 }
 
 func waitForAction(client *hcloud.Client, action *hcloud.Action, err error) {
-	if err == nil && action.Status != "success" {
+	if err == nil && action.Status != hcloud.ActionStatusSuccess {
 		for {
 			action, _, _ := client.Action.GetByID(context.Background(), action.ID)
 			if action.Status == hcloud.ActionStatusSuccess {
@@ -226,17 +226,17 @@ func cleanupDeploy(client *hcloud.Client, tag string) {
 	}
 	for _, firewall := range firewalls {
 		actions, _, err := client.Firewall.RemoveResources(ctx, firewall, resources)
-		if len(actions) > 0 {
-			waitForAction(client, actions[0], err)
+		for _, action := range actions {
+			waitForAction(client, action, err)
 		}
 		_, err = client.Firewall.Delete(ctx, firewall)
 		if err == nil {
 			log.Printf("DELETED firewall %s\n", firewall.Name)
 		} else {
-			log.Printf("DOUBLE REMOVE RESOURCES?!")
+			log.Printf("DOUBLE REMOVE RESOURCES?! %s", err)
 			actions, _, err := client.Firewall.RemoveResources(ctx, firewall, resources)
-			if len(actions) > 0 {
-				waitForAction(client, actions[0], err)
+			for _, action := range actions {
+				waitForAction(client, action, err)
 			}
 			_, err = client.Firewall.Delete(ctx, firewall)
 			if err != nil {
