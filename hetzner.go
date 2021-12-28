@@ -115,7 +115,9 @@ func createServer(client *hcloud.Client, tag string) {
 	volumeID, _ := strconv.Atoi(os.Getenv("CTX_HETZNER_VAULT_VOLUME_ID"))
 	volume, _, _ := client.Volume.GetByID(ctx, volumeID)
 	action, _, _ := client.Volume.Detach(ctx, volume)
-	client.Action.WatchProgress(ctx, action)
+	if action != nil {
+		client.Action.WatchProgress(ctx, action)
+	}
 
 	// prepare new server
 	myKey, _, _ := client.SSHKey.GetByName(ctx, "ackersond")
