@@ -16,7 +16,7 @@ func ListAllServers() []*hcloud.Server {
 }
 
 func DeleteServer(serverID int) string {
-	result := fmt.Sprintf("Successfully deleted server %d", serverID)
+	result := fmt.Sprintf("Successfully deleted server %d: ", serverID)
 
 	client := hcloud.NewClient(hcloud.WithToken(os.Getenv("CTX_HETZNER_API_TOKEN")))
 	server, _, err := client.Server.GetByID(context.Background(), serverID)
