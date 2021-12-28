@@ -211,20 +211,15 @@ func cleanupDeploy(client *hcloud.Client, tag string) {
 		for _, action := range actions {
 			client.Action.WatchProgress(ctx, action)
 		}
-		_, err := client.Firewall.Delete(ctx, firewall)
-		if err == nil {
-			log.Printf("DELETED firewall %s\n", firewall.Name)
-		} else {
-			log.Printf("weird hetzner deadlock: %s", err)
-			actions, _, _ := client.Firewall.RemoveResources(ctx, firewall, resources)
-			for _, action := range actions {
-				client.Action.WatchProgress(ctx, action)
-			}
-			_, err = client.Firewall.Delete(ctx, firewall)
-			if err != nil {
-				log.Printf("Unable to delete FW %s (%s) !!!\n", firewall.Name, err)
+
+		for {
+			_, err := client.Firewall.Delete(ctx, firewall)
+			if err == nil {
+				log.Printf("DELETED firewall %s\n", firewall.Name)
+				break
 			} else {
-				log.Printf("finally DELETED firewall %s\n", firewall.Name)
+				log.Printf("waiting for firewall to be released: %s", err)
+				time.Sleep(3 * time.Second)
 			}
 		}
 	}
