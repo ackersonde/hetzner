@@ -55,7 +55,7 @@ jobs:
 
           ssh -o StrictHostKeyChecking=no root@$NEW_SERVER_IPV4 "\
             mkdir -p traefik/logs &&
-            echo 'awaiting cloud-init to finish...'
+            echo 'server executing cloud-init...please be patient'
             cloud-init status --wait > /dev/null 2>&1
             [ $? -ne 0 ] && echo 'Cloud-init failed' && exit 1
             echo 'Cloud-init succeeded at ' `date -R`  > ~/post-cloud-init.log"

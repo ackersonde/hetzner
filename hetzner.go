@@ -116,8 +116,8 @@ func createServer(client *hcloud.Client, tag string) {
 	// detach existing volume
 	volumeID, _ := strconv.Atoi(os.Getenv("CTX_HETZNER_VAULT_VOLUME_ID"))
 	volume, _, _ := client.Volume.GetByID(ctx, volumeID)
-	action, _, err := client.Volume.Detach(ctx, volume)
-	waitForAction(client, action, err)
+	action, _, _ := client.Volume.Detach(ctx, volume)
+	client.Action.WatchProgress(ctx, action)
 
 	// prepare new server
 	myKey, _, _ := client.SSHKey.GetByName(ctx, "ackersond")
@@ -171,25 +171,6 @@ func createServer(client *hcloud.Client, tag string) {
 	}
 }
 
-func waitForAction(client *hcloud.Client, action *hcloud.Action, err error) {
-	log.Printf("Awaiting %s with current status: %s (err: %s)\n", action.Command, action.Status, err)
-	if err == nil && action.Status != hcloud.ActionStatusSuccess {
-		for {
-			action, _, _ := client.Action.GetByID(context.Background(), action.ID)
-			if action.Status == hcloud.ActionStatusSuccess {
-				break
-			} else if action.Status == hcloud.ActionStatusRunning {
-				log.Printf("action %s ... sleeping 3secs\n", action.Status)
-				time.Sleep(3 * time.Second)
-			} else {
-				log.Printf("action failed %s\n", action.ErrorMessage)
-			}
-		}
-	} else if err != nil {
-		log.Printf("Unable to perform action: %s\n", err)
-	}
-}
-
 func cleanupDeploy(client *hcloud.Client, tag string) {
 	ctx := context.Background()
 	opts := hcloud.ServerListOpts{ListOpts: hcloud.ListOpts{LabelSelector: "delete=true"}}
@@ -229,13 +210,12 @@ func cleanupDeploy(client *hcloud.Client, tag string) {
 		actions, _, _ := client.Firewall.RemoveResources(ctx, firewall, resources)
 		for _, action := range actions {
 			client.Action.WatchProgress(ctx, action)
-			//waitForAction(client, action, err)
 		}
 		_, err := client.Firewall.Delete(ctx, firewall)
 		if err == nil {
 			log.Printf("DELETED firewall %s\n", firewall.Name)
 		} else {
-			log.Printf("DOUBLE REMOVE RESOURCES?! %s", err)
+			log.Printf("weird hetzner deadlock: %s", err)
 			actions, _, _ := client.Firewall.RemoveResources(ctx, firewall, resources)
 			for _, action := range actions {
 				client.Action.WatchProgress(ctx, action)
