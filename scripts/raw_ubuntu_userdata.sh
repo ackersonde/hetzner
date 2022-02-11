@@ -16,7 +16,8 @@ cat <<EOF >/root/traefik/acme.json
 $ACME_JSON
 EOF
 chmod 600 /root/traefik/acme.json
-curl -o traefik/dynamic_conf.yml https://raw.githubusercontent.com/ackersonde/digitaloceans/main/scripts/dynamic_conf.yml
+rmdir /root/traefik/dynamic_conf.yml || true
+curl -o /root/traefik/dynamic_conf.yml https://raw.githubusercontent.com/ackersonde/digitaloceans/main/scripts/dynamic_conf.yml
 
 touch ~/.hushlogin
 
