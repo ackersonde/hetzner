@@ -64,7 +64,7 @@ jobs:
           ssh-keygen -f "/home/runner/.ssh/known_hosts" -R $NEW_SERVER_IPV4
 
           # deploy Traefik to Hetzner
-          ssh root@$NEW_SERVER_IPV4 "\
+          ssh -o StrictHostKeyChecking=no root@$NEW_SERVER_IPV4 "\
             docker run -d --restart=always \
               -e DO_AUTH_TOKEN=${{ secrets.CTX_DIGITALOCEAN_DNS_TOKEN }} \
               -v /var/run/docker.sock:/var/run/docker.sock:ro \
