@@ -16,22 +16,7 @@ cat <<EOF >/root/traefik/acme.json
 $ACME_JSON
 EOF
 chmod 600 /root/traefik/acme.json
-
-# Setup Syncthing config
-mkdir -p /root/syncthing/config /root/syncthing/2086h-4d0t2
-echo ".trashed-*" > /root/syncthing/2086h-4d0t2/.stignore
-chmod 600 /root/syncthing/2086h-4d0t2/.stignore
-echo -n "$SYNCTHING_CONFIG" | base64 -d | tee -a /root/syncthing/config/config.xml
-chmod 600 /root/syncthing/config/config.xml
-cat <<EOF > /root/syncthing/config/key.pem
-$SYNCTHING_KEY
-EOF
-chmod 600 /root/syncthing/config/key.pem
-cat <<EOF > /root/syncthing/config/cert.pem
-$SYNCTHING_CERT
-EOF
-chmod 644 /root/syncthing/config/cert.pem
-chown -R 1000:1000 /root/syncthing
+curl -o traefik/dynamic_conf.yml https://raw.githubusercontent.com/ackersonde/digitaloceans/main/scripts/dynamic_conf.yml
 
 touch ~/.hushlogin
 
