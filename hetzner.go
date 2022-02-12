@@ -36,7 +36,7 @@ func main() {
 	} else if *fnPtr == "cleanupDeploy" {
 		cleanupDeploy(client, *tagPtr)
 	} else if *fnPtr == "firewallSSH" {
-		allowSSHipAddress(client, *ipPtr, *tagPtr, *serverPtr)
+		allowSSHipAddress(client, *ipPtr, *tagPtr)
 	} else if *fnPtr == "checkServer" {
 		checkServerPowerSwitch(client, *serverPtr)
 	}
@@ -58,7 +58,7 @@ func main() {
 	*/
 }
 
-func allowSSHipAddress(client *hcloud.Client, ipAddr string, tag string, serverID int) {
+func allowSSHipAddress(client *hcloud.Client, ipAddr string, tag string) {
 	ctx := context.Background()
 
 	opts := hcloud.FirewallCreateOpts{
