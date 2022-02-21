@@ -8,6 +8,25 @@ import (
 	"github.com/hetznercloud/hcloud-go/hcloud"
 )
 
+func GetSSHFirewallRules() []string {
+	var sshSources []string
+	client := hcloud.NewClient(hcloud.WithToken(os.Getenv("CTX_HETZNER_API_TOKEN")))
+	firewall, _, _ := client.Firewall.Get(context.Background(), os.Getenv("CTX_HETZNER_FIREWALL"))
+	for _, rule := range firewall.Rules {
+		if rule.Direction == hcloud.FirewallRuleDirectionIn {
+			if *rule.Port == "22" {
+				for _, sourceIP := range rule.SourceIPs {
+					sshSources = append(sshSources, sourceIP.IP.String())
+				}
+			}
+		} else {
+			continue
+		}
+	}
+
+	return sshSources
+}
+
 // bender slackbot methods
 func ListAllServers() []*hcloud.Server {
 	client := hcloud.NewClient(hcloud.WithToken(os.Getenv("CTX_HETZNER_API_TOKEN")))
