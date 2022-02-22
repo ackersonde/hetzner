@@ -3,6 +3,7 @@ package hetznercloud
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 
 	"github.com/hetznercloud/hcloud-go/hcloud"
@@ -16,7 +17,9 @@ func GetSSHFirewallRules() []string {
 		if rule.Direction == hcloud.FirewallRuleDirectionIn {
 			if rule.Port != nil && *rule.Port == "22" {
 				for _, sourceIP := range rule.SourceIPs {
-					sshSources = append(sshSources, sourceIP.IP.String())
+					log.Printf("SourceIP: %s\n", sourceIP.String())
+					log.Printf("SourceIP.IP: %s\n", sourceIP.IP.String())
+					sshSources = append(sshSources, sourceIP.String())
 				}
 			}
 		} else {
