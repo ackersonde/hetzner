@@ -14,7 +14,7 @@ func GetSSHFirewallRules() []string {
 	firewall, _, _ := client.Firewall.Get(context.Background(), os.Getenv("CTX_HETZNER_FIREWALL"))
 	for _, rule := range firewall.Rules {
 		if rule.Direction == hcloud.FirewallRuleDirectionIn {
-			if *rule.Port == "22" {
+			if rule.Port != nil && *rule.Port == "22" {
 				for _, sourceIP := range rule.SourceIPs {
 					sshSources = append(sshSources, sourceIP.IP.String())
 				}
