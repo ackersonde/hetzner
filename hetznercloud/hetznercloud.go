@@ -16,7 +16,7 @@ func GetSSHFirewallRules() []string {
 		if rule.Direction == hcloud.FirewallRuleDirectionIn {
 			if rule.Port != nil && *rule.Port == "22" {
 				for _, sourceIP := range rule.SourceIPs {
-					sshSources = append(sshSources, sourceIP.String(), sourceIP.IP.String())
+					sshSources = append(sshSources, sourceIP.String())
 				}
 			}
 		}
