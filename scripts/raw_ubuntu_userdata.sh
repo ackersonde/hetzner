@@ -4,10 +4,10 @@ chmod 600 /etc/ssh/ssh_host_ecdsa_key /etc/ssh/ssh_host_rsa_key /etc/ssh/ssh_hos
 echo -n "$CTX_ACKDE_HOST_SSH_KEY_PUB_B64" | base64 -d | tee /etc/ssh/ssh_host_ecdsa_key.pub /etc/ssh/ssh_host_rsa_key.pub /etc/ssh/ssh_host_ed25519_key.pub
 chmod 644 /etc/ssh/ssh_host_ecdsa_key.pub /etc/ssh/ssh_host_rsa_key.pub /etc/ssh/ssh_host_ed25519_key.pub
 
-echo -n "$CTX_SERVER_DEPLOY_CACERT_B64" | base64 -d | tee /root/.ssh/id_ed25519-cert.pub
-chmod 400 /root/.ssh/id_ed25519-cert.pub
-echo -n "$CTX_SERVER_DEPLOY_SECRET_B64" | base64 -d | tee /root/.ssh/id_ed25519
-chmod 400 /root/.ssh/id_ed25519
+#echo -n "$CTX_SERVER_DEPLOY_CACERT_B64" | base64 -d | tee /root/.ssh/id_ed25519-cert.pub
+#chmod 400 /root/.ssh/id_ed25519-cert.pub
+#echo -n "$CTX_SERVER_DEPLOY_SECRET_B64" | base64 -d | tee /root/.ssh/id_ed25519
+#chmod 400 /root/.ssh/id_ed25519
 echo -n "$CTX_SERVER_DEPLOY_PUBLIC_B64" | base64 -d | tee -a /root/.ssh/authorized_keys
 
 # *.ackerson.de SSL cert
