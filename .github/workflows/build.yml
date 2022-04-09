@@ -32,7 +32,6 @@ jobs:
           go build hetzner.go
 
           envsubst '${CTX_ACKDE_HOST_SSH_KEY_PRIV_B64} ${CTX_ACKDE_HOST_SSH_KEY_PUB_B64} ${CTX_SERVER_DEPLOY_CACERT_B64} ${CTX_SERVER_DEPLOY_SECRET_B64} ${CTX_SERVER_DEPLOY_PUBLIC_B64} ${ACME_JSON}' < scripts/raw_ubuntu_userdata.sh > ubuntu_userdata.sh
-          scp -o StrictHostKeyChecking=no ubuntu_userdata.sh root@vault.ackerson.de:~/
           mkdir ~/.ssh # for new RSA key created in next step
           ./hetzner -fn=createServer -tag=traefik
 
