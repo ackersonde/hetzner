@@ -19,8 +19,7 @@ chmod 600 /root/traefik/acme.json
 rmdir /root/traefik/dynamic_conf.yml || true
 curl -o /root/traefik/dynamic_conf.yml https://raw.githubusercontent.com/ackersonde/digitaloceans/main/scripts/dynamic_conf.yml
 
-apt-get update
-apt-get upgrade
+apt-get update && apt-get upgrade
 
 # prepare iptables persistence and unattended-upgrades install settings
 debconf-set-selections <<EOF
