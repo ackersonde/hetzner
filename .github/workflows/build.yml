@@ -65,7 +65,8 @@ jobs:
 
           # deploy Traefik to Hetzner
           ssh -o StrictHostKeyChecking=no root@$NEW_SERVER_IPV4 "\
-            docker run -d --restart=always \
+            docker run -d --name ipv6nat --cap-drop ALL --cap-add NET_ADMIN --cap-add NET_RAW --network host --restart unless-stopped -v /var/run/docker.sock:/var/run/docker.sock:ro robbertkl/ipv6nat && \
+            docker run -d --name traefik --restart=unless-stopped \
               -e DO_AUTH_TOKEN=${{ secrets.CTX_DIGITALOCEAN_DNS_TOKEN }} \
               -v /var/run/docker.sock:/var/run/docker.sock:ro \
               -v ~/traefik/logs:/var/log/traefik/ \
@@ -84,10 +85,12 @@ jobs:
               --label='traefik.http.middlewares.https-redirect.redirectscheme.scheme=https' \
               --label='traefik.http.middlewares.https-redirect.redirectscheme.permanent=true' \
               --label='traefik.http.middlewares.https-redirect.redirectscheme.port=443' \
-              -p 80:80 -p 443:443 --name traefik traefik:2.6 \
+              -p 80:80 -p 443:443 traefik:2.7 \
               --accesslog.filepath=/var/log/traefik/access.log \
               --log.filepath=/var/log/traefik/traefik.log --log.level=WARN \
               --api --providers.docker.exposedByDefault=false --providers.file.filename=/dynamic_conf.yml \
+              --entryPoints.web.forwardedHeaders.trustedIPs=172.17.0.1/24,fd00::/80 \
+              --entryPoints.secure.forwardedHeaders.trustedIPs=172.17.0.1/24,fd00::/80 \
               --entrypoints.web.address=:80 --entrypoints.secure.address=:443 \
               --certificatesResolvers.letsencrypt.acme.email=dan@ackerson.de \
               --certificatesResolvers.letsencrypt.acme.storage=acme.json \

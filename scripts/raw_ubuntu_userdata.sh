@@ -19,7 +19,7 @@ chmod 600 /root/traefik/acme.json
 rmdir /root/traefik/dynamic_conf.yml || true
 curl -o /root/traefik/dynamic_conf.yml https://raw.githubusercontent.com/ackersonde/digitaloceans/main/scripts/dynamic_conf.yml
 
-touch ~/.hushlogin
+apt-get update && apt-get upgrade
 
 # prepare iptables persistence and unattended-upgrades install settings
 debconf-set-selections <<EOF
@@ -27,26 +27,7 @@ iptables-persistent iptables-persistent/autosave_v4 boolean true
 iptables-persistent iptables-persistent/autosave_v6 boolean true
 unattended-upgrades unattended-upgrades/enable_auto_updates boolean true
 EOF
-
-# allow docker containers to talk to the internet
-ip6tables -t nat -A POSTROUTING -s fd00::/80 ! -o docker0 -j MASQUERADE
 dpkg-reconfigure -f noninteractive unattended-upgrades
-
-apt-get update
-apt-get -y install docker.io iptables-persistent
-
-systemctl start docker
-systemctl enable docker
-
-# setup ipv6 capability in docker
-cat > /etc/docker/daemon.json <<EOF
-{
-  "ipv6": true,
-  "fixed-cidr-v6": "fd00::/80"
-}
-EOF
-systemctl restart docker
-
 cat > /etc/apt/apt.conf.d/50unattended-upgrades << EOF
 Unattended-Upgrade::Allowed-Origins {
     "\${distro_id} stable";
@@ -63,6 +44,17 @@ Unattended-Upgrade::Remove-Unused-Dependencies "true";
 Unattended-Upgrade::Automatic-Reboot "true";
 EOF
 
+# setup ipv6 capability in docker
+cat > /etc/docker/daemon.json <<EOF
+{
+  "ipv6": true,
+  "fixed-cidr-v6": "fd00::/80"
+}
+EOF
+systemctl start docker
+systemctl enable docker
+
 # harden SSH - remove after firewall rules tightened if you'd like
 sed -i -e '/^\(#\|\)PasswordAuthentication/s/^.*$/PasswordAuthentication no/' /etc/ssh/sshd_config
 # service ssh restart
+touch ~/.hushlogin
