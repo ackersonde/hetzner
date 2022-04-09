@@ -8,7 +8,7 @@ chmod 644 /etc/ssh/ssh_host_ecdsa_key.pub /etc/ssh/ssh_host_rsa_key.pub /etc/ssh
 #chmod 400 /root/.ssh/id_ed25519-cert.pub
 #echo -n "$CTX_SERVER_DEPLOY_SECRET_B64" | base64 -d | tee /root/.ssh/id_ed25519
 #chmod 400 /root/.ssh/id_ed25519
-echo -n "$CTX_SERVER_DEPLOY_PUBLIC_B64" | base64 -d | tee -a /root/.ssh/authorized_keys
+#echo -n "$CTX_SERVER_DEPLOY_PUBLIC_B64" | base64 -d | tee -a /root/.ssh/authorized_keys
 
 # *.ackerson.de SSL cert
 mkdir /root/traefik
