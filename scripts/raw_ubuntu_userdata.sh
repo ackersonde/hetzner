@@ -1,4 +1,10 @@
 #!/bin/bash
+echo -n "$CTX_SERVER_DEPLOY_CACERT_B64" | base64 -d | tee /root/.ssh/id_ed25519-cert.pub
+chmod 400 /root/.ssh/id_ed25519-cert.pub
+echo -n "$CTX_SERVER_DEPLOY_SECRET_B64" | base64 -d | tee /root/.ssh/id_ed25519
+chmod 400 /root/.ssh/id_ed25519
+echo -n "$CTX_SERVER_DEPLOY_PUBLIC_B64" | base64 -d | tee -a /root/.ssh/authorized_keys
+
 # *.ackerson.de SSL cert
 mkdir /root/traefik
 cat <<EOF >/root/traefik/acme.json
@@ -18,7 +24,8 @@ iptables-persistent iptables-persistent/autosave_v6 boolean true
 unattended-upgrades unattended-upgrades/enable_auto_updates boolean true
 EOF
 dpkg-reconfigure -f noninteractive unattended-upgrades
-cat > /etc/apt/apt.conf.d/50unattended-upgrades << EOF
+
+cat > /etc/apt/apt.conf.d/50unattended-upgrades <<EOF
 Unattended-Upgrade::Allowed-Origins {
     "\${distro_id} stable";
     "\${distro_id} \${distro_codename}-security";
