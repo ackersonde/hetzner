@@ -109,7 +109,7 @@ jobs:
           )"
 
           ssh -o StrictHostKeyChecking=no root@$NEW_SERVER_IPV4 "$vault_dir_prep"
-          scp local.json init-vault.sh root@$NEW_SERVER_IPV4:/mnt/hetzner_disk/vault_data/config/
+          scp scripts/local.json scripts/init-vault.sh root@$NEW_SERVER_IPV4:/mnt/hetzner_disk/vault_data/config/
           ssh root@$NEW_SERVER_IPV4 "\
             docker rm -f vault || true && docker pull vault:latest && \
             docker run -d --cap-add=IPC_LOCK --restart=always \
