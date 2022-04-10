@@ -124,7 +124,7 @@ jobs:
               --name vault vault:latest server && \
             $init_cmd"
 
-          ./hetzner -fn=cleanupDeploy -tag=traefik
+          ./hetzner -fn=cleanupDeploy -serverID=$NEW_SERVER_ID -tag=traefik
 
           rm ubuntu_userdata.sh ~/.ssh/* /tmp/new_hetzner_server_params
 

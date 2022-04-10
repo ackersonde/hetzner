@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/ackersonde/digitaloceans/common"
 	"github.com/hetznercloud/hcloud-go/hcloud"
 	"golang.org/x/crypto/ssh"
 )
@@ -34,7 +35,7 @@ func main() {
 	if *fnPtr == "createServer" {
 		createServer(client, *tagPtr)
 	} else if *fnPtr == "cleanupDeploy" {
-		cleanupDeploy(client, *tagPtr)
+		cleanupDeploy(client, *serverPtr, *tagPtr)
 	} else if *fnPtr == "firewallSSH" {
 		allowSSHipAddress(client, *ipPtr, *tagPtr)
 	} else if *fnPtr == "checkServer" {
@@ -54,7 +55,7 @@ func main() {
 	}
 
 	existingServer := getExistingServer(client)
-	fmt.Printf("%d : %s\n", existingServer.ID, existingServer.PublicNet.IPv6.IP)
+	fmt.Printf("%d : %s\n", existingServer.ID, existingServer.PublicNet.IPv6.IP.String())
 	*/
 }
 
@@ -171,7 +172,7 @@ func createServer(client *hcloud.Client, tag string) {
 	}
 }
 
-func cleanupDeploy(client *hcloud.Client, tag string) {
+func cleanupDeploy(client *hcloud.Client, serverID int, tag string) {
 	ctx := context.Background()
 	opts := hcloud.ServerListOpts{ListOpts: hcloud.ListOpts{LabelSelector: "delete=true"}}
 	servers, _ := client.Server.AllWithOpts(ctx, opts)
@@ -223,6 +224,11 @@ func cleanupDeploy(client *hcloud.Client, tag string) {
 			}
 		}
 	}
+
+	server, _, _ := client.Server.GetByID(ctx, serverID)
+	// Update DNS entries @ DigitalOcean
+	common.UpdateDNSentry(server.PublicNet.IPv6.IP.String(), "vault.ackerson.de", 294257276)
+	common.UpdateDNSentry(server.PublicNet.IPv4.IP.String(), "vault.ackerson.de", 294257241)
 }
 
 func getExistingServer(client *hcloud.Client, tag string) *hcloud.Server {
