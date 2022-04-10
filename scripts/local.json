@@ -1,0 +1,15 @@
+{
+	"backend": {
+		"file": {
+			"path": "vault"
+		}
+	},
+	"listener": {
+		"tcp": {
+			"address": "0.0.0.0:8200",
+			"tls_disable": 1,
+			"x_forwarded_for_authorized_addrs": "172.17.0.1/24"
+		}
+	},
+	"ui": true
+}

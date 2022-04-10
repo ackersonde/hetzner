@@ -53,9 +53,9 @@ jobs:
             cloud-init status --wait > /dev/null 2>&1
             [ $? -ne 0 ] && echo 'Cloud-init failed' && exit 1
             echo 'Cloud-init succeeded at ' `date -R`  > ~/post-cloud-init.log
-            mkdir /mnt/volume-nbg1-vault &&
-            mount -o discard,defaults /dev/disk/by-id/scsi-0HC_Volume_15704224 /mnt/volume-nbg1-vault
-            echo '/dev/disk/by-id/scsi-0HC_Volume_15704224 /mnt/volume-nbg1-vault ext4 discard,nofail,defaults 0 0' >> /etc/fstab"
+            mkdir /mnt/hetzner_disk &&
+            mount -o discard,defaults /dev/disk/by-id/scsi-0HC_Volume_15704224 /mnt/hetzner_disk
+            echo '/dev/disk/by-id/scsi-0HC_Volume_15704224 /mnt/hetzner_disk ext4 discard,nofail,defaults 0 0' >> /etc/fstab"
 
           # cloud-init setup new host keys - let's ditch the orig ones
           ssh-keygen -f "/home/runner/.ssh/known_hosts" -R $NEW_SERVER_IPV4
@@ -94,14 +94,39 @@ jobs:
               --certificatesResolvers.letsencrypt.acme.dnsChallenge.provider=digitalocean \
               --certificatesResolvers.letsencrypt.acme.dnsChallenge.delayBeforeCheck=5"
 
+          hz_vol_mount=/dev/disk/by-id/scsi-0HC_Volume_15704224
+          vault_dir_prep="$(cat <<-EOF
+            mkdir -p /mnt/hetzner_disk/vault_data/config
+            chown -Rf systemd-network:1000 /mnt/hetzner_disk/vault_data
+          EOF
+          )"
+          init_cmd="$(cat <<-EOF
+            sleep 3
+            if [ ! -d "/mnt/hetzner_disk/vault_data/core" ] ; then
+              docker exec -d vault /vault/config/init-vault.sh
+            fi
+          EOF
+          )"
+
+          ssh -o StrictHostKeyChecking=no root@$NEW_SERVER_IPV4 "$vault_dir_prep"
+          scp local.json init-vault.sh root@$NEW_SERVER_IPV4:/mnt/hetzner_disk/vault_data/config/
+          ssh root@$NEW_SERVER_IPV4 "\
+            docker rm -f vault || true && docker pull vault:latest && \
+            docker run -d --cap-add=IPC_LOCK --restart=always \
+              -v /mnt/hetzner_disk/vault_data:/vault \
+              -e VAULT_API_ADDR=http://127.0.0.1:8200 \
+              -e VAULT_ADDR=http://127.0.0.1:8200 \
+              --label='traefik.enable=true' \
+              --label='traefik.http.routers.vault.middlewares=http-ratelimit@file,secHeaders@file,api_auth' \
+              --label='traefik.http.routers.vault.tls.certResolver=letsencrypt' \
+              --label='traefik.http.routers.vault.tls.domains=vault.ackerson.de' \
+              --label='traefik.http.routers.vault.rule=Host(\`vault.ackerson.de\`)' \
+              --name vault vault:latest server && \
+            $init_cmd"
+
           ./hetzner -fn=cleanupDeploy -tag=traefik
 
           rm ubuntu_userdata.sh ~/.ssh/* /tmp/new_hetzner_server_params
-
-          curl -Ss -X POST -u "${{secrets.CTX_GITHUB_PERSONAL_ACCESS_USERNAME}}:${{secrets.CTX_GITHUB_PERSONAL_ACCESS_TOKEN}}" \
-            -H "Accept: application/vnd.github.v3+json" \
-            https://api.github.com/repos/ackersonde/vault/actions/workflows/build.yml/dispatches \
-            -d '{"ref":"master"}'
 
           curl -s -o /dev/null -X POST -d token=${{ secrets.CTX_SLACK_NOTIFICATIONS_TOKEN }} -d channel=C092UE0H4 \
             -d text="<https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID | $GITHUB_REPOSITORY @ $GITHUB_RUN_ID>" \
