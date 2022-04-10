@@ -227,8 +227,8 @@ func cleanupDeploy(client *hcloud.Client, serverID int, tag string) {
 
 	server, _, _ := client.Server.GetByID(ctx, serverID)
 	// Update DNS entries @ DigitalOcean
-	common.UpdateDNSentry(server.PublicNet.IPv6.IP.String(), "vault.ackerson.de", 294257276)
-	common.UpdateDNSentry(server.PublicNet.IPv4.IP.String(), "vault.ackerson.de", 294257241)
+	common.UpdateDNSentry(server.PublicNet.IPv6.IP.String(), "ackerson.de", 294257276)
+	common.UpdateDNSentry(server.PublicNet.IPv4.IP.String(), "ackerson.de", 294257241)
 }
 
 func getExistingServer(client *hcloud.Client, tag string) *hcloud.Server {
