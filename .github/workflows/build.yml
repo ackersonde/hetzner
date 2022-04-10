@@ -19,6 +19,8 @@ jobs:
           go-version: '1.18'
       - name: Build application
         env:
+          CTX_DIGITALOCEAN_DROPLET_PROXY_TOKEN: ${{ secrets.CTX_DIGITALOCEAN_DROPLET_PROXY_TOKEN }}
+          CTX_DIGITALOCEAN_FIREWALL: ${{ secrets.CTX_DIGITALOCEAN_FIREWALL }}
           CTX_HETZNER_API_TOKEN: ${{ secrets.CTX_HETZNER_API_TOKEN }}
           CTX_HETZNER_VAULT_VOLUME_ID: ${{ secrets.CTX_HETZNER_VAULT_VOLUME_ID }}
           CTX_ACKDE_HOST_SSH_KEY_PUB_B64: ${{ secrets.CTX_ACKDE_HOST_SSH_KEY_PUB_B64 }}
