@@ -80,7 +80,12 @@ func allowSSHipAddress(client *hcloud.Client, ipAddr string, tag string) {
 				Selector: "label=" + tag},
 		}},
 	}
-	client.Firewall.Create(ctx, opts)
+	result, response, err := client.Firewall.Create(ctx, opts)
+	if err != nil {
+		log.Printf("NOPE: %s", err.Error())
+	} else {
+		log.Printf("%s: %s", response.Status, result.Firewall.Name)
+	}
 }
 
 func checkServerPowerSwitch(client *hcloud.Client, serverID int) {
