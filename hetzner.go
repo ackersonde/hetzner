@@ -60,7 +60,7 @@ func main() {
 	*/
 }
 
-func allowSSHipAddress(client *hcloud.Client, ipAddr string, tag string) {
+func allowSSHipAddress(client *hcloud.Client, ipAddr string, instanceTag string) {
 	ctx := context.Background()
 
 	opts := hcloud.FirewallCreateOpts{
@@ -78,15 +78,15 @@ func allowSSHipAddress(client *hcloud.Client, ipAddr string, tag string) {
 		ApplyTo: []hcloud.FirewallResource{{
 			Type: hcloud.FirewallResourceTypeLabelSelector,
 			LabelSelector: &hcloud.FirewallResourceLabelSelector{
-				Selector: "label=" + tag},
+				Selector: "label=" + instanceTag},
 		}},
 	}
 	result, response, err := client.Firewall.Create(ctx, opts)
 	if err != nil {
 		log.Printf("NOPE: %s (%s)", opts.Name, err.Error())
 		if strings.Contains(err.Error(), "uniqueness_error") {
-			removeDeploymentFirewalls(client, ctx, "access=github")
-			allowSSHipAddress(client, ipAddr, tag) // retry
+			removeDeploymentFirewalls(client, ctx, instanceTag, "access=github")
+			allowSSHipAddress(client, ipAddr, instanceTag) // retry
 		}
 	} else {
 		log.Printf("%s: %s", response.Status, result.Firewall.Name)
@@ -116,11 +116,11 @@ func listVolume(client *hcloud.Client) {
 	}
 }
 
-func createServer(client *hcloud.Client, tag string) {
+func createServer(client *hcloud.Client, instanceTag string) {
 	ctx := context.Background()
 
 	// find existing server
-	existingServer := getExistingServer(client, tag)
+	existingServer := getExistingServer(client, instanceTag)
 
 	// detach existing volume
 	volumeID, _ := strconv.Atoi(os.Getenv("CTX_HETZNER_VAULT_VOLUME_ID"))
@@ -143,7 +143,7 @@ func createServer(client *hcloud.Client, tag string) {
 		ServerType: &hcloud.ServerType{ID: 22},  // AMD 2 core, 2GB Ram
 		Image:      &hcloud.Image{ID: 15512617}, // ubuntu-20.04
 		Location:   &hcloud.Location{Name: "nbg1"},
-		Labels:     map[string]string{"label": tag},
+		Labels:     map[string]string{"label": instanceTag},
 		Volumes:    []*hcloud.Volume{{ID: volumeID}},
 		Automount:  Bool(false),
 		UserData:   string(ubuntuUserData),
@@ -182,7 +182,7 @@ func createServer(client *hcloud.Client, tag string) {
 	}
 }
 
-func cleanupDeploy(client *hcloud.Client, serverID int, tag string) {
+func cleanupDeploy(client *hcloud.Client, serverID int, instanceTag string) {
 	ctx := context.Background()
 	opts := hcloud.ServerListOpts{ListOpts: hcloud.ListOpts{LabelSelector: "delete=true"}}
 	servers, _ := client.Server.AllWithOpts(ctx, opts)
@@ -207,7 +207,7 @@ func cleanupDeploy(client *hcloud.Client, serverID int, tag string) {
 		}
 	}
 
-	removeDeploymentFirewalls(client, ctx, "access=github")
+	removeDeploymentFirewalls(client, ctx, instanceTag, "access=github")
 
 	server, _, _ := client.Server.GetByID(ctx, serverID)
 	// Update DNS entries @ DigitalOcean
@@ -217,15 +217,15 @@ func cleanupDeploy(client *hcloud.Client, serverID int, tag string) {
 	}
 }
 
-func removeDeploymentFirewalls(client *hcloud.Client, ctx context.Context, tag string) {
+func removeDeploymentFirewalls(client *hcloud.Client, ctx context.Context, instanceTag string, firewallTag string) {
 	firewalls, _ := client.Firewall.AllWithOpts(context.Background(), hcloud.FirewallListOpts{
-		ListOpts: hcloud.ListOpts{LabelSelector: tag},
+		ListOpts: hcloud.ListOpts{LabelSelector: firewallTag},
 	})
 	resources := []hcloud.FirewallResource{
 		{
 			Type: hcloud.FirewallResourceTypeLabelSelector,
 			LabelSelector: &hcloud.FirewallResourceLabelSelector{
-				Selector: "label=" + tag},
+				Selector: "label=" + instanceTag},
 		},
 	}
 	for _, firewall := range firewalls {
