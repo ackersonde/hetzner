@@ -13,6 +13,7 @@ import (
 	"net"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/ackersonde/digitaloceans/common"
@@ -82,7 +83,11 @@ func allowSSHipAddress(client *hcloud.Client, ipAddr string, tag string) {
 	}
 	result, response, err := client.Firewall.Create(ctx, opts)
 	if err != nil {
-		log.Printf("NOPE: %s", err.Error())
+		log.Printf("NOPE: %s (%s)", opts.Name, err.Error())
+		if strings.Contains(err.Error(), "uniqueness_error") {
+			removeDeploymentFirewalls(client, ctx, "access=github")
+			allowSSHipAddress(client, ipAddr, tag) // retry
+		}
 	} else {
 		log.Printf("%s: %s", response.Status, result.Firewall.Name)
 	}
@@ -202,8 +207,19 @@ func cleanupDeploy(client *hcloud.Client, serverID int, tag string) {
 		}
 	}
 
-	firewalls, _ := client.Firewall.AllWithOpts(ctx, hcloud.FirewallListOpts{
-		ListOpts: hcloud.ListOpts{LabelSelector: "access=github"},
+	removeDeploymentFirewalls(client, ctx, "access=github")
+
+	server, _, _ := client.Server.GetByID(ctx, serverID)
+	// Update DNS entries @ DigitalOcean
+	if server != nil {
+		common.UpdateDNSentry(server.PublicNet.IPv6.IP.String()+"1", "ackerson.de", 294257276)
+		common.UpdateDNSentry(server.PublicNet.IPv4.IP.String(), "ackerson.de", 294257241)
+	}
+}
+
+func removeDeploymentFirewalls(client *hcloud.Client, ctx context.Context, tag string) {
+	firewalls, _ := client.Firewall.AllWithOpts(context.Background(), hcloud.FirewallListOpts{
+		ListOpts: hcloud.ListOpts{LabelSelector: tag},
 	})
 	resources := []hcloud.FirewallResource{
 		{
@@ -228,13 +244,6 @@ func cleanupDeploy(client *hcloud.Client, serverID int, tag string) {
 				time.Sleep(3 * time.Second)
 			}
 		}
-	}
-
-	server, _, _ := client.Server.GetByID(ctx, serverID)
-	// Update DNS entries @ DigitalOcean
-	if server != nil {
-		common.UpdateDNSentry(server.PublicNet.IPv6.IP.String()+"1", "ackerson.de", 294257276)
-		common.UpdateDNSentry(server.PublicNet.IPv4.IP.String(), "ackerson.de", 294257241)
 	}
 }
 
