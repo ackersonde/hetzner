@@ -26,12 +26,13 @@ jobs:
           CTX_ACKDE_HOST_SSH_KEY_PUB_B64: ${{ secrets.CTX_ACKDE_HOST_SSH_KEY_PUB_B64 }}
           CTX_ACKDE_HOST_SSH_KEY_PRIV_B64: ${{ secrets.CTX_ACKDE_HOST_SSH_KEY_PRIV_B64 }}
           CTX_SERVER_DEPLOY_PUBLIC_B64: ${{ secrets.CTX_SERVER_DEPLOY_PUBLIC_B64 }}
+          ORG_TITAN_PUBLIC_KEY: ${{ secrets.ORG_TITAN_PUBLIC_KEY }}
           ACME_JSON: ${{ secrets.CTX_ACME_JSON }}
         run: |
           go mod tidy
           go build hetzner.go
 
-          envsubst '${CTX_ACKDE_HOST_SSH_KEY_PRIV_B64} ${CTX_ACKDE_HOST_SSH_KEY_PUB_B64} ${CTX_SERVER_DEPLOY_PUBLIC_B64} ${ACME_JSON}' < scripts/raw_ubuntu_userdata.sh > ubuntu_userdata.sh
+          envsubst '${CTX_ACKDE_HOST_SSH_KEY_PRIV_B64} ${CTX_ACKDE_HOST_SSH_KEY_PUB_B64} ${CTX_SERVER_DEPLOY_PUBLIC_B64} ${ORG_TITAN_PUBLIC_KEY} ${ACME_JSON}' < scripts/raw_ubuntu_userdata.sh > ubuntu_userdata.sh
           mkdir ~/.ssh # for new RSA key created in next step
           ./hetzner -fn=createServer -tag=traefik
 

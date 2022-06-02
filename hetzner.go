@@ -131,7 +131,7 @@ func createServer(client *hcloud.Client, instanceTag string) {
 	}
 
 	// prepare new server
-	myKey, _, _ := client.SSHKey.GetByName(ctx, "ackersond")
+	// myKey, _, _ := client.SSHKey.GetByName(ctx, "ackersond")
 	deploymentKey := createSSHKey(client, os.Getenv("GITHUB_RUN_ID"))
 
 	ubuntuUserData, _ := ioutil.ReadFile("ubuntu_userdata.sh")
@@ -147,7 +147,7 @@ func createServer(client *hcloud.Client, instanceTag string) {
 		Volumes:    []*hcloud.Volume{{ID: volumeID}},
 		Automount:  Bool(false),
 		UserData:   string(ubuntuUserData),
-		SSHKeys:    []*hcloud.SSHKey{deploymentKey, myKey},
+		SSHKeys:    []*hcloud.SSHKey{deploymentKey},
 	})
 	if err != nil {
 		log.Fatalf("*** unable to create server: %s\n", err)
