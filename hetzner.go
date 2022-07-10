@@ -25,7 +25,7 @@ var sshPrivateKeyFilePath = "/home/runner/.ssh/id_rsa"
 var envFile = "/tmp/new_hetzner_server_params"
 
 func main() {
-	client := hcloud.NewClient(hcloud.WithToken(os.Getenv("CTX_HETZNER_API_TOKEN")))
+	client := hcloud.NewClient(hcloud.WithToken(os.Getenv("HETZNER_API_TOKEN")))
 
 	fnPtr := flag.String("fn", "createServer|cleanupDeploy|firewallSSH|createSnapshot|checkServer", "which function to run")
 	ipPtr := flag.String("ip", "<internet ip addr of github action instance>", "see prev param")
@@ -55,8 +55,8 @@ func main() {
 		fmt.Printf("image[%d] %s\n", image.ID, image.Name)
 	}
 
-	existingServer := getExistingServer(client)
-	fmt.Printf("%d : %s\n", existingServer.ID, existingServer.PublicNet.IPv6.IP.String())
+	existingServer := getExistingServer(client, "traefik")
+	fmt.Printf("%d: IPv6 /64 prefix=%s\n", existingServer.ID, existingServer.PublicNet.IPv6.IP.String())
 	*/
 }
 
@@ -104,7 +104,7 @@ func checkServerPowerSwitch(client *hcloud.Client, serverID int) {
 }
 
 func listVolume(client *hcloud.Client) {
-	volumeID, _ := strconv.Atoi(os.Getenv("CTX_HETZNER_VAULT_VOLUME_ID"))
+	volumeID, _ := strconv.Atoi(os.Getenv("HETZNER_VAULT_VOLUME_ID"))
 	volume, _, err := client.Volume.GetByID(context.Background(), volumeID)
 	if err != nil {
 		log.Fatalf("error retrieving volume: %s\n", err)
@@ -123,7 +123,7 @@ func createServer(client *hcloud.Client, instanceTag string) {
 	existingServer := getExistingServer(client, instanceTag)
 
 	// detach existing volume
-	volumeID, _ := strconv.Atoi(os.Getenv("CTX_HETZNER_VAULT_VOLUME_ID"))
+	volumeID, _ := strconv.Atoi(os.Getenv("HETZNER_VAULT_VOLUME_ID"))
 	volume, _, _ := client.Volume.GetByID(ctx, volumeID)
 	action, _, _ := client.Volume.Detach(ctx, volume)
 	if action != nil {
@@ -141,7 +141,7 @@ func createServer(client *hcloud.Client, instanceTag string) {
 	result, _, err := client.Server.Create(ctx, hcloud.ServerCreateOpts{
 		Name:       "h" + os.Getenv("GITHUB_RUN_ID") + "-" + timestamp + ".ackerson.de",
 		ServerType: &hcloud.ServerType{ID: 22},  // AMD 2 core, 2GB Ram
-		Image:      &hcloud.Image{ID: 15512617}, // ubuntu-20.04
+		Image:      &hcloud.Image{ID: 67794396}, // ubuntu-22.04
 		Location:   &hcloud.Location{Name: "nbg1"},
 		Labels:     map[string]string{"label": instanceTag},
 		Volumes:    []*hcloud.Volume{{ID: volumeID}},

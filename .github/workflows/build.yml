@@ -1,4 +1,4 @@
-name: Deploy Hetzner Server
+name: Deploy Vault Server at Hetzner
 
 on:
   push:
@@ -11,28 +11,28 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-go@v2
         with:
           go-version: '1.18'
       - name: Build application
-        env:
-          CTX_DIGITALOCEAN_DROPLET_PROXY_TOKEN: ${{ secrets.CTX_DIGITALOCEAN_DROPLET_PROXY_TOKEN }}
-          CTX_DIGITALOCEAN_FIREWALL: ${{ secrets.CTX_DIGITALOCEAN_FIREWALL }}
-          CTX_HETZNER_API_TOKEN: ${{ secrets.CTX_HETZNER_API_TOKEN }}
-          CTX_HETZNER_VAULT_VOLUME_ID: ${{ secrets.CTX_HETZNER_VAULT_VOLUME_ID }}
-          CTX_ACKDE_HOST_SSH_KEY_PUB_B64: ${{ secrets.CTX_ACKDE_HOST_SSH_KEY_PUB_B64 }}
-          CTX_ACKDE_HOST_SSH_KEY_PRIV_B64: ${{ secrets.CTX_ACKDE_HOST_SSH_KEY_PRIV_B64 }}
-          CTX_SERVER_DEPLOY_PUBLIC_B64: ${{ secrets.CTX_SERVER_DEPLOY_PUBLIC_B64 }}
-          ORG_TITAN_PUBLIC_KEY: ${{ secrets.ORG_TITAN_PUBLIC_KEY }}
-          ACME_JSON: ${{ secrets.CTX_ACME_JSON }}
         run: |
+          export HETZNER_API_TOKEN=$(echo ${{ secrets.ORG_HETZNER_CLOUD_API_TOKEN }} | base64 -d)
+          export HETZNER_VAULT_VOLUME_ID=$(echo ${{ secrets.ORG_HETZNER_VAULT_VOLUME_ID }} | base64 -d)
+          export ACKDE_HOST_SSH_KEY_PUB_B64=${{ secrets.ORG_ACKDE_HOST_SSH_KEY_PUB }}
+          export ACKDE_HOST_SSH_KEY_PRIV_B64=${{ secrets.ORG_ACKDE_HOST_SSH_KEY_PRIV }}
+          export SERVER_DEPLOY_PUBLIC_B64=${{ secrets.ORG_SERVER_DEPLOY_PUBLIC }}
+          export TITAN_PUBLIC_KEY=$(echo ${{ secrets.ORG_TITAN_PUBLIC_KEY }} | base64 -d)
+          export ACME_JSON=$(echo ${{ secrets.ORG_ACME_JSON }} | base64 -d)
+          export CTX_DIGITALOCEAN_DROPLET_PROXY_TOKEN=$(echo ${{ secrets.ORG_DIGITALOCEAN_DROPLET_PROXY_TOKEN }} | base64 -d)
+          export CTX_DIGITALOCEAN_FIREWALL=$(echo ${{ secrets.ORG_DIGITALOCEAN_FIREWALL }} | base64 -d)
+
           go mod tidy
           go build hetzner.go
 
-          envsubst '${CTX_ACKDE_HOST_SSH_KEY_PRIV_B64} ${CTX_ACKDE_HOST_SSH_KEY_PUB_B64} ${CTX_SERVER_DEPLOY_PUBLIC_B64} ${ORG_TITAN_PUBLIC_KEY} ${ACME_JSON}' < scripts/raw_ubuntu_userdata.sh > ubuntu_userdata.sh
+          envsubst '${ACKDE_HOST_SSH_KEY_PRIV_B64} ${ACKDE_HOST_SSH_KEY_PUB_B64} ${SERVER_DEPLOY_PUBLIC_B64} ${TITAN_PUBLIC_KEY} ${ACME_JSON}' < scripts/raw_ubuntu_userdata.sh > ubuntu_userdata.sh
           mkdir ~/.ssh # for new RSA key created in next step
           ./hetzner -fn=createServer -tag=traefik
 
@@ -57,8 +57,8 @@ jobs:
             [ $? -ne 0 ] && echo 'Cloud-init failed' && exit 1
             echo 'Cloud-init succeeded at ' `date -R`  > ~/post-cloud-init.log
             mkdir /mnt/hetzner_disk &&
-            mount -o discard,defaults /dev/disk/by-id/scsi-0HC_Volume_15704224 /mnt/hetzner_disk
-            echo '/dev/disk/by-id/scsi-0HC_Volume_15704224 /mnt/hetzner_disk ext4 discard,nofail,defaults 0 0' >> /etc/fstab"
+            mount -o discard,defaults /dev/disk/by-id/scsi-0HC_Volume_$HETZNER_VAULT_VOLUME_ID /mnt/hetzner_disk
+            echo '/dev/disk/by-id/scsi-0HC_Volume_$HETZNER_VAULT_VOLUME_ID /mnt/hetzner_disk ext4 discard,nofail,defaults 0 0' >> /etc/fstab"
 
           # cloud-init setup new host keys - let's ditch the orig ones
           ssh-keygen -f "/home/runner/.ssh/known_hosts" -R $NEW_SERVER_IPV4
@@ -67,13 +67,12 @@ jobs:
           ssh -o StrictHostKeyChecking=no root@$NEW_SERVER_IPV4 "\
             docker run -d --name ipv6nat --cap-drop ALL --cap-add NET_ADMIN --cap-add NET_RAW --network host --restart unless-stopped -v /var/run/docker.sock:/var/run/docker.sock:ro robbertkl/ipv6nat && \
             docker run -d --name traefik --restart=unless-stopped \
-              -e DO_AUTH_TOKEN=${{ secrets.CTX_DIGITALOCEAN_DNS_TOKEN }} \
+              -e DO_AUTH_TOKEN=$(echo ${{ secrets.ORG_DIGITALOCEAN_DNS_TOKEN }} | base64 -d)\
               -v /var/run/docker.sock:/var/run/docker.sock:ro \
               -v ~/traefik/logs:/var/log/traefik/ \
               -v ~/traefik/acme.json:/acme.json \
               -v ~/traefik/dynamic_conf.yml:/dynamic_conf.yml \
               --label='traefik.enable=true' \
-              --label='traefik.http.middlewares.api_auth.basicauth.users=${{ secrets.CTX_BASIC_AUTH_USER }}:${{ secrets.CTX_BASIC_AUTH_PASSWD }}' \
               --label='traefik.http.routers.api.entrypoints=web,secure' \
               --label='traefik.http.routers.api.middlewares=http-ratelimit@file,secHeaders@file,api_auth' \
               --label='traefik.http.routers.api.rule=Host(\`mv.ackerson.de\`)' \
@@ -97,7 +96,7 @@ jobs:
               --certificatesResolvers.letsencrypt.acme.dnsChallenge.provider=digitalocean \
               --certificatesResolvers.letsencrypt.acme.dnsChallenge.delayBeforeCheck=5"
 
-          hz_vol_mount=/dev/disk/by-id/scsi-0HC_Volume_15704224
+          hz_vol_mount="/dev/disk/by-id/scsi-0HC_Volume_$HETZNER_VAULT_VOLUME_ID"
           vault_dir_prep="$(cat <<-EOF
             mkdir -p /mnt/hetzner_disk/vault_data/config
             chown -Rf systemd-network:1000 /mnt/hetzner_disk/vault_data
@@ -131,6 +130,7 @@ jobs:
 
           rm ubuntu_userdata.sh ~/.ssh/* /tmp/new_hetzner_server_params
 
-          curl -s -o /dev/null -X POST -d token=${{ secrets.CTX_SLACK_NOTIFICATIONS_TOKEN }} -d channel=C092UE0H4 \
+          export SLACK_NOTIFY_TOKEN=$(echo ${{ secrets.ORG_SLACK_NOTIFICATIONS_TOKEN }} | base64 -d)
+          curl -s -o /dev/null -X POST -d token=$SLACK_NOTIFY_TOKEN -d channel=C092UE0H4 \
             -d text="<https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID | $GITHUB_REPOSITORY @ $GITHUB_RUN_ID>" \
             https://slack.com/api/chat.postMessage

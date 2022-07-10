@@ -8,10 +8,13 @@ import (
 	"github.com/hetznercloud/hcloud-go/hcloud"
 )
 
+var API_TOKEN = os.Getenv("HETZNER_API_TOKEN")
+var FIREWALL_ID = os.Getenv("HETZNER_FIREWALL")
+
 func GetSSHFirewallRules() []string {
 	var sshSources []string
-	client := hcloud.NewClient(hcloud.WithToken(os.Getenv("CTX_HETZNER_API_TOKEN")))
-	firewall, _, _ := client.Firewall.Get(context.Background(), os.Getenv("CTX_HETZNER_FIREWALL"))
+	client := hcloud.NewClient(hcloud.WithToken(API_TOKEN))
+	firewall, _, _ := client.Firewall.Get(context.Background(), FIREWALL_ID)
 	for _, rule := range firewall.Rules {
 		if rule.Direction == hcloud.FirewallRuleDirectionIn {
 			if rule.Port != nil && *rule.Port == "22" {
@@ -27,7 +30,7 @@ func GetSSHFirewallRules() []string {
 
 // bender slackbot methods
 func ListAllServers() []*hcloud.Server {
-	client := hcloud.NewClient(hcloud.WithToken(os.Getenv("CTX_HETZNER_API_TOKEN")))
+	client := hcloud.NewClient(hcloud.WithToken(os.Getenv("HETZNER_API_TOKEN")))
 	servers, _ := client.Server.All(context.Background())
 	return servers
 }
@@ -35,7 +38,7 @@ func ListAllServers() []*hcloud.Server {
 func DeleteServer(serverID int) string {
 	result := fmt.Sprintf("Successfully deleted server %d: ", serverID)
 
-	client := hcloud.NewClient(hcloud.WithToken(os.Getenv("CTX_HETZNER_API_TOKEN")))
+	client := hcloud.NewClient(hcloud.WithToken(os.Getenv("HETZNER_API_TOKEN")))
 	server, _, err := client.Server.GetByID(context.Background(), serverID)
 	if err != nil {
 		return fmt.Sprintf("Server %d doesn't exist!\n", serverID)
