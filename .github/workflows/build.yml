@@ -33,8 +33,7 @@ jobs:
           go mod tidy
           go build hetzner.go
 
-          # envsubst '${ACKDE_HOST_SSH_KEY_PRIV_B64} ${ACKDE_HOST_SSH_KEY_PUB_B64} ${SERVER_DEPLOY_CACERT_B64} ${SERVER_DEPLOY_PUBLIC_B64} ${TITAN_PUBLIC_KEY} ${ACME_JSON}' < scripts/raw_ubuntu_userdata.sh > ubuntu_userdata.sh
-          envsubst '${SERVER_DEPLOY_PUBLIC_B64} ${TITAN_PUBLIC_KEY} ${ACME_JSON}' < scripts/raw_ubuntu_userdata.sh > ubuntu_userdata.sh
+          envsubst '${ACKDE_HOST_SSH_KEY_PRIV_B64} ${ACKDE_HOST_SSH_KEY_PUB_B64} ${SERVER_DEPLOY_PUBLIC_B64} ${TITAN_PUBLIC_KEY} ${ACME_JSON}' < scripts/raw_ubuntu_userdata.sh > ubuntu_userdata.sh
           mkdir ~/.ssh # for new RSA key created in next step
           ./hetzner -fn=createServer -tag=traefik
 
@@ -108,6 +107,8 @@ jobs:
             sleep 3
             if [ ! -d "/mnt/hetzner_disk/vault_data/core" ] ; then
               docker exec -d vault /vault/config/init-vault.sh
+            else
+              docker exec -d vault chown -Rf vault:vault /vault
             fi
           EOF
           )"
