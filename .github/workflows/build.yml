@@ -51,6 +51,7 @@ jobs:
             sleep 3
           done
 
+          export HZ_VOL_MOUNT="/dev/disk/by-id/scsi-0HC_Volume_$HETZNER_VAULT_VOLUME_ID"
           ssh -o StrictHostKeyChecking=no -i /home/runner/.ssh/id_rsa root@$NEW_SERVER_IPV4 "\
             mkdir -p traefik/logs &&
             echo 'server executing cloud-init...please be patient'
@@ -58,11 +59,11 @@ jobs:
             [ $? -ne 0 ] && echo 'Cloud-init failed' && exit 1
             echo 'Cloud-init succeeded at ' `date -R`  > ~/post-cloud-init.log
             mkdir /mnt/hetzner_disk &&
-            mount -o discard,defaults /dev/disk/by-id/scsi-0HC_Volume_$HETZNER_VAULT_VOLUME_ID /mnt/hetzner_disk
-            echo '/dev/disk/by-id/scsi-0HC_Volume_$HETZNER_VAULT_VOLUME_ID /mnt/hetzner_disk ext4 discard,nofail,defaults 0 0' >> /etc/fstab"
+            mount -o discard,defaults $HZ_VOL_MOUNT /mnt/hetzner_disk
+            echo '$HZ_VOL_MOUNT /mnt/hetzner_disk ext4 discard,nofail,defaults 0 0' >> /etc/fstab"
 
           # cloud-init setup new host keys - let's ditch the orig ones
-          ssh-keygen -f "/home/runner/.ssh/known_hosts" -R $NEW_SERVER_IPV4
+          # ssh-keygen -f "/home/runner/.ssh/known_hosts" -R $NEW_SERVER_IPV4
 
           # deploy Traefik to Hetzner
           ssh -o StrictHostKeyChecking=no -i /home/runner/.ssh/id_rsa root@$NEW_SERVER_IPV4 "\
@@ -97,7 +98,6 @@ jobs:
               --certificatesResolvers.letsencrypt.acme.dnsChallenge.provider=digitalocean \
               --certificatesResolvers.letsencrypt.acme.dnsChallenge.delayBeforeCheck=5"
 
-          hz_vol_mount="/dev/disk/by-id/scsi-0HC_Volume_$HETZNER_VAULT_VOLUME_ID"
           vault_dir_prep="$(cat <<-EOF
             mkdir -p /mnt/hetzner_disk/vault_data/config
             chown -Rf systemd-network:1000 /mnt/hetzner_disk/vault_data
@@ -113,7 +113,7 @@ jobs:
           EOF
           )"
 
-          ssh -o StrictHostKeyChecking=no root@$NEW_SERVER_IPV4 "$vault_dir_prep"
+          ssh root@$NEW_SERVER_IPV4 "$vault_dir_prep"
           scp scripts/local.json scripts/init-vault.sh root@$NEW_SERVER_IPV4:/mnt/hetzner_disk/vault_data/config/
           ssh root@$NEW_SERVER_IPV4 "\
             docker rm -f vault || true && docker pull vault:latest && \
