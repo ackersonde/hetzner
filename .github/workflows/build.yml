@@ -51,7 +51,7 @@ jobs:
             sleep 3
           done
 
-          sleep 10  # does this help shake out race condition beetween host keys being replaced and ssh access?
+          sleep 20  # does this help shake out race condition beetween host keys being replaced and ssh access?
           export HZ_VOL_MOUNT="/dev/disk/by-id/scsi-0HC_Volume_$HETZNER_VAULT_VOLUME_ID"
           ssh -o StrictHostKeyChecking=no -i /home/runner/.ssh/id_rsa root@$NEW_SERVER_IPV4 "\
             mkdir -p traefik/logs &&
