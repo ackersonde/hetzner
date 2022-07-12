@@ -40,6 +40,7 @@ Unattended-Upgrade::Remove-Unused-Dependencies "true";
 // Automatically reboot *WITHOUT CONFIRMATION* if a
 // the file /var/run/reboot-required is found after the upgrade
 Unattended-Upgrade::Automatic-Reboot "true";
+Unattended-Upgrade::Automatic-Reboot-Time "05:00";
 EOF
 
 # setup ipv6 capability in docker
