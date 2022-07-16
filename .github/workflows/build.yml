@@ -104,9 +104,11 @@ jobs:
             sleep 3
             if [ ! -d "/mnt/hetzner_disk/vault_data/core" ] ; then
               docker exec -d vault /vault/config/init-vault.sh
-            else
+            else # if attaching to existing, correct folder permissions and restart
+              sleep 3
               docker exec -d vault chown -Rf vault:vault /vault
-              docker restart vault  # as the permissions above need to be correct
+              sleep 3
+              docker restart vault
             fi
           EOF
           )"
