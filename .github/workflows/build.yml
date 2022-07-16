@@ -83,7 +83,7 @@ jobs:
               --label='traefik.http.middlewares.https-redirect.redirectscheme.scheme=https' \
               --label='traefik.http.middlewares.https-redirect.redirectscheme.permanent=true' \
               --label='traefik.http.middlewares.https-redirect.redirectscheme.port=443' \
-              -p 80:80 -p 443:443 traefik:2.7 \
+              -p 80:80 -p 443:443 traefik:2.8 \
               --accesslog.filepath=/var/log/traefik/access.log \
               --log.filepath=/var/log/traefik/traefik.log --log.level=WARN \
               --api --providers.docker.exposedByDefault=false --providers.file.filename=/dynamic_conf.yml \
@@ -106,6 +106,7 @@ jobs:
               docker exec -d vault /vault/config/init-vault.sh
             else
               docker exec -d vault chown -Rf vault:vault /vault
+              docker restart vault  # as the permissions above need to be correct
             fi
           EOF
           )"
