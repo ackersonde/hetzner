@@ -60,13 +60,13 @@ jobs:
             mount -o discard,defaults $HZ_VOL_MOUNT /mnt/hetzner_disk
             echo '$HZ_VOL_MOUNT /mnt/hetzner_disk ext4 discard,nofail,defaults 0 0' >> /etc/fstab"
 
-          echo "${{ secrets.ORG_TLS_ACKDE_CRT }}" | base64 -d | tee ackde.crt
-          echo "${{ secrets.ORG_TLS_ACKDE_KEY }}" | base64 -d | tee ackde.key
-          echo "${{ secrets.ORG_TLS_HAUSM_CRT }}" | base64 -d | tee hausm.crt
-          echo "${{ secrets.ORG_TLS_HAUSM_KEY }}" | base64 -d | tee hausm.key
+          echo "${{ secrets.ORG_TLS_ACKDE_CRT }}" | base64 -d | tee ackde.crt >/dev/null
+          echo "${{ secrets.ORG_TLS_ACKDE_KEY }}" | base64 -d | tee ackde.key >/dev/null
+          echo "${{ secrets.ORG_TLS_HAUSM_CRT }}" | base64 -d | tee hausm.crt >/dev/null
+          echo "${{ secrets.ORG_TLS_HAUSM_KEY }}" | base64 -d | tee hausm.key >/dev/null
           scp *.crt root@$NEW_SERVER_IPV4:/root/traefik/certs/
           scp *.key root@$NEW_SERVER_IPV4:/root/traefik/keys/
-          scp scripts/dynamic_conf.yml root@$NEW_SERVER_IPV4:/root/traefik/
+          scp ./hetzner_home/scripts/dynamic_conf.yml root@$NEW_SERVER_IPV4:/root/traefik/
 
           # deploy Traefik to Hetzner
           ssh -o StrictHostKeyChecking=no -i /home/runner/.ssh/id_rsa root@$NEW_SERVER_IPV4 "\
