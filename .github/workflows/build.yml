@@ -15,8 +15,6 @@ jobs:
           go-version: '1.18'
       - name: Build application
         run: |
-          export HETZNER_API_TOKEN=$(echo ${{ secrets.ORG_HETZNER_CLOUD_API_TOKEN }} | base64 -d)
-          export HETZNER_VAULT_VOLUME_ID=$(echo ${{ secrets.ORG_HETZNER_VAULT_VOLUME_ID }} | base64 -d)
           export SERVER_DEPLOY_CACERT_B64=${{ secrets.ORG_SERVER_DEPLOY_CACERT }}
           export SERVER_DEPLOY_SECRET_B64=${{ secrets.ORG_SERVER_DEPLOY_SECRET }}
           export SERVER_DEPLOY_PUBLIC_B64=${{ secrets.ORG_SERVER_DEPLOY_PUBLIC }}
@@ -24,9 +22,9 @@ jobs:
           export SYNCTHING_KEY=$(echo ${{ secrets.ORG_CLOUD_SYNCTHING_KEY }} | base64 -d)
           export SYNCTHING_CERT=$(echo ${{ secrets.ORG_CLOUD_SYNCTHING_CERT }} | base64 -d)
           export TITAN_PUBLIC_KEY=$(echo ${{ secrets.ORG_TITAN_PUBLIC_KEY }} | base64 -d)
-          export CTX_DIGITALOCEAN_DROPLET_PROXY_TOKEN=$(echo ${{ secrets.ORG_DIGITALOCEAN_DROPLET_PROXY_TOKEN }} | base64 -d)
-          export CTX_DIGITALOCEAN_FIREWALL=$(echo ${{ secrets.ORG_DIGITALOCEAN_FIREWALL }} | base64 -d)
+          envsubst '$SERVER_DEPLOY_CACERT_B64, $SERVER_DEPLOY_SECRET_B64, $SERVER_DEPLOY_PUBLIC_B64, $TITAN_PUBLIC_KEY, $SYNCTHING_CONFIG_B64, $SYNCTHING_KEY, $SYNCTHING_CERT' < ./hetzner_home/scripts/raw_ubuntu_userdata.sh >ubuntu_userdata.sh
 
+          mkdir ~/.ssh
           ssh-keyscan github.com >> ~/.ssh/known_hosts
           git clone https://github.com/ackersonde/hetzner_home.git
           cd hetzner_home
@@ -34,9 +32,8 @@ jobs:
           go build hetzner.go
           cd ../
 
-          envsubst '$SERVER_DEPLOY_CACERT_B64, $SERVER_DEPLOY_SECRET_B64, $SERVER_DEPLOY_PUBLIC_B64, $TITAN_PUBLIC_KEY, $SYNCTHING_CONFIG_B64, $SYNCTHING_KEY, $SYNCTHING_CERT' < ./hetzner_home/scripts/raw_ubuntu_userdata.sh >ubuntu_userdata.sh
-
-          mkdir ~/.ssh # for new RSA key created in next step
+          export HETZNER_API_TOKEN=$(echo ${{ secrets.ORG_HETZNER_CLOUD_API_TOKEN }} | base64 -d)
+          export HETZNER_VAULT_VOLUME_ID=$(echo ${{ secrets.ORG_HETZNER_VAULT_VOLUME_ID }} | base64 -d)
           ./hetzner_home/hetzner -fn=createServer -tag=vault
 
           # prepare new Hetzner server for Github deployment
@@ -132,6 +129,8 @@ jobs:
               --name vault vault:latest server && \
             $init_cmd"
 
+          export CTX_DIGITALOCEAN_DROPLET_PROXY_TOKEN=$(echo ${{ secrets.ORG_DIGITALOCEAN_DROPLET_PROXY_TOKEN }} | base64 -d)
+          export CTX_DIGITALOCEAN_FIREWALL=$(echo ${{ secrets.ORG_DIGITALOCEAN_FIREWALL }} | base64 -d)
           ./hetzner_home/hetzner -fn=cleanupDeploy -serverID=$NEW_SERVER_ID -tag=vault
 
           rm ubuntu_userdata.sh *.crt *.key ~/.ssh/* /tmp/new_hetzner_server_params
