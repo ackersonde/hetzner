@@ -15,6 +15,14 @@ jobs:
           go-version: '1.18'
       - name: Build application
         run: |
+          mkdir ~/.ssh
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
+          git clone https://github.com/ackersonde/hetzner_home.git
+          cd hetzner_home
+          go mod tidy
+          go build hetzner.go
+          cd ../
+
           export SERVER_DEPLOY_CACERT_B64=${{ secrets.ORG_SERVER_DEPLOY_CACERT }}
           export SERVER_DEPLOY_SECRET_B64=${{ secrets.ORG_SERVER_DEPLOY_SECRET }}
           export SERVER_DEPLOY_PUBLIC_B64=${{ secrets.ORG_SERVER_DEPLOY_PUBLIC }}
@@ -23,14 +31,6 @@ jobs:
           export SYNCTHING_CERT=$(echo ${{ secrets.ORG_CLOUD_SYNCTHING_CERT }} | base64 -d)
           export TITAN_PUBLIC_KEY=$(echo ${{ secrets.ORG_TITAN_PUBLIC_KEY }} | base64 -d)
           envsubst '$SERVER_DEPLOY_CACERT_B64, $SERVER_DEPLOY_SECRET_B64, $SERVER_DEPLOY_PUBLIC_B64, $TITAN_PUBLIC_KEY, $SYNCTHING_CONFIG_B64, $SYNCTHING_KEY, $SYNCTHING_CERT' < ./hetzner_home/scripts/raw_ubuntu_userdata.sh >ubuntu_userdata.sh
-
-          mkdir ~/.ssh
-          ssh-keyscan github.com >> ~/.ssh/known_hosts
-          git clone https://github.com/ackersonde/hetzner_home.git
-          cd hetzner_home
-          go mod tidy
-          go build hetzner.go
-          cd ../
 
           export HETZNER_API_TOKEN=$(echo ${{ secrets.ORG_HETZNER_CLOUD_API_TOKEN }} | base64 -d)
           export HETZNER_VAULT_VOLUME_ID=$(echo ${{ secrets.ORG_HETZNER_VAULT_VOLUME_ID }} | base64 -d)
