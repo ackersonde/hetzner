@@ -26,18 +26,21 @@ jobs:
           export CTX_DIGITALOCEAN_DROPLET_PROXY_TOKEN=$(echo ${{ secrets.ORG_DIGITALOCEAN_DROPLET_PROXY_TOKEN }} | base64 -d)
           export CTX_DIGITALOCEAN_FIREWALL=$(echo ${{ secrets.ORG_DIGITALOCEAN_FIREWALL }} | base64 -d)
 
+          git clone git@github.com:ackersonde/hetzner_home.git
+          cd hetzner_home
           go mod tidy
           go build hetzner.go
+          cd ../
 
-          envsubst '${SERVER_DEPLOY_CACERT_B64} ${SERVER_DEPLOY_PUBLIC_B64} ${TITAN_PUBLIC_KEY} ${ACME_JSON_64}' < scripts/raw_ubuntu_userdata.sh > ubuntu_userdata.sh
+          envsubst '${SERVER_DEPLOY_CACERT_B64} ${SERVER_DEPLOY_PUBLIC_B64} ${TITAN_PUBLIC_KEY} ${ACME_JSON_64}' < hetzner_home/scripts/raw_ubuntu_userdata.sh > ubuntu_userdata.sh
           mkdir ~/.ssh # for new RSA key created in next step
-          ./hetzner -fn=createServer -tag=traefik
+          ./hetzner_home/hetzner -fn=createServer -tag=vault
 
           # prepare new Hetzner server for Github deployment
           public_ip_address=$(curl -s https://checkip.amazonaws.com)
           source /tmp/new_hetzner_server_params
 
-          ./hetzner -fn=firewallSSH -tag=traefik -ip=$public_ip_address -serverID=$NEW_SERVER_ID
+          ./hetzner_home/hetzner -fn=firewallSSH -tag=vault -ip=$public_ip_address -serverID=$NEW_SERVER_ID
 
           sudo apt-get -y install nmap
           while [ `nmap "$NEW_SERVER_IPV4" -PN -p ssh | egrep 'open|closed|filtered' | awk '{print $2}'` != "open" ]
@@ -47,7 +50,6 @@ jobs:
             sleep 3
           done
 
-          sleep 20  # does this help shake out race condition beetween host keys being replaced and ssh access?
           export HZ_VOL_MOUNT="/dev/disk/by-id/scsi-0HC_Volume_$HETZNER_VAULT_VOLUME_ID"
           ssh -o StrictHostKeyChecking=no -i /home/runner/.ssh/id_rsa root@$NEW_SERVER_IPV4 "\
             mkdir -p traefik/logs &&
@@ -58,9 +60,6 @@ jobs:
             mkdir /mnt/hetzner_disk &&
             mount -o discard,defaults $HZ_VOL_MOUNT /mnt/hetzner_disk
             echo '$HZ_VOL_MOUNT /mnt/hetzner_disk ext4 discard,nofail,defaults 0 0' >> /etc/fstab"
-
-          # cloud-init setup new host keys - let's ditch the orig ones
-          # ssh-keygen -f "/home/runner/.ssh/known_hosts" -R $NEW_SERVER_IPV4
 
           # deploy Traefik to Hetzner
           ssh -o StrictHostKeyChecking=no -i /home/runner/.ssh/id_rsa root@$NEW_SERVER_IPV4 "\
@@ -129,7 +128,7 @@ jobs:
               --name vault vault:latest server && \
             $init_cmd"
 
-          ./hetzner -fn=cleanupDeploy -serverID=$NEW_SERVER_ID -tag=traefik
+          ./hetzner_home/hetzner -fn=cleanupDeploy -serverID=$NEW_SERVER_ID -tag=vault
 
           rm ubuntu_userdata.sh ~/.ssh/* /tmp/new_hetzner_server_params
 
