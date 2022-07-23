@@ -17,12 +17,13 @@ jobs:
         run: |
           export HETZNER_API_TOKEN=$(echo ${{ secrets.ORG_HETZNER_CLOUD_API_TOKEN }} | base64 -d)
           export HETZNER_VAULT_VOLUME_ID=$(echo ${{ secrets.ORG_HETZNER_VAULT_VOLUME_ID }} | base64 -d)
-          export ACKDE_HOST_SSH_KEY_PUB_B64=${{ secrets.ORG_ACKDE_HOST_SSH_KEY_PUB }}
-          export ACKDE_HOST_SSH_KEY_PRIV_B64=${{ secrets.ORG_ACKDE_HOST_SSH_KEY_PRIV }}
           export SERVER_DEPLOY_CACERT_B64=${{ secrets.ORG_SERVER_DEPLOY_CACERT }}
+          export SERVER_DEPLOY_SECRET_B64=${{ secrets.ORG_SERVER_DEPLOY_SECRET }}
           export SERVER_DEPLOY_PUBLIC_B64=${{ secrets.ORG_SERVER_DEPLOY_PUBLIC }}
+          export SYNCTHING_CONFIG_B64=${{ secrets.ORG_CLOUD_SYNCTHING_CONFIG }}
+          export SYNCTHING_KEY=$(echo ${{ secrets.ORG_CLOUD_SYNCTHING_KEY }} | base64 -d)
+          export SYNCTHING_CERT=$(echo ${{ secrets.ORG_CLOUD_SYNCTHING_CERT }} | base64 -d)
           export TITAN_PUBLIC_KEY=$(echo ${{ secrets.ORG_TITAN_PUBLIC_KEY }} | base64 -d)
-          export ACME_JSON_B64=${{ secrets.ORG_ACME_JSON }}
           export CTX_DIGITALOCEAN_DROPLET_PROXY_TOKEN=$(echo ${{ secrets.ORG_DIGITALOCEAN_DROPLET_PROXY_TOKEN }} | base64 -d)
           export CTX_DIGITALOCEAN_FIREWALL=$(echo ${{ secrets.ORG_DIGITALOCEAN_FIREWALL }} | base64 -d)
 
@@ -32,7 +33,8 @@ jobs:
           go build hetzner.go
           cd ../
 
-          envsubst '${SERVER_DEPLOY_CACERT_B64} ${SERVER_DEPLOY_PUBLIC_B64} ${TITAN_PUBLIC_KEY} ${ACME_JSON_64}' < hetzner_home/scripts/raw_ubuntu_userdata.sh > ubuntu_userdata.sh
+          envsubst '$SERVER_DEPLOY_CACERT_B64, $SERVER_DEPLOY_SECRET_B64, $SERVER_DEPLOY_PUBLIC_B64, $TITAN_PUBLIC_KEY, $SYNCTHING_CONFIG_B64, $SYNCTHING_KEY, $SYNCTHING_CERT' < ./hetzner_home/scripts/raw_ubuntu_userdata.sh >ubuntu_userdata.sh
+
           mkdir ~/.ssh # for new RSA key created in next step
           ./hetzner_home/hetzner -fn=createServer -tag=vault
 
@@ -52,7 +54,6 @@ jobs:
 
           export HZ_VOL_MOUNT="/dev/disk/by-id/scsi-0HC_Volume_$HETZNER_VAULT_VOLUME_ID"
           ssh -o StrictHostKeyChecking=no -i /home/runner/.ssh/id_rsa root@$NEW_SERVER_IPV4 "\
-            mkdir -p traefik/logs &&
             echo 'server executing cloud-init...please be patient'
             cloud-init status --wait > /dev/null 2>&1
             [ $? -ne 0 ] && echo 'Cloud-init failed' && exit 1
@@ -61,21 +62,28 @@ jobs:
             mount -o discard,defaults $HZ_VOL_MOUNT /mnt/hetzner_disk
             echo '$HZ_VOL_MOUNT /mnt/hetzner_disk ext4 discard,nofail,defaults 0 0' >> /etc/fstab"
 
+          echo "${{ secrets.ORG_TLS_ACKDE_CRT }}" | base64 -d | tee ackde.crt
+          echo "${{ secrets.ORG_TLS_ACKDE_KEY }}" | base64 -d | tee ackde.key
+          echo "${{ secrets.ORG_TLS_HAUSM_CRT }}" | base64 -d | tee hausm.crt
+          echo "${{ secrets.ORG_TLS_HAUSM_KEY }}" | base64 -d | tee hausm.key
+          scp *.crt root@$NEW_SERVER_IPV4:/root/traefik/certs/
+          scp *.key root@$NEW_SERVER_IPV4:/root/traefik/keys/
+          scp scripts/dynamic_conf.yml root@$NEW_SERVER_IPV4:/root/traefik/
+
           # deploy Traefik to Hetzner
           ssh -o StrictHostKeyChecking=no -i /home/runner/.ssh/id_rsa root@$NEW_SERVER_IPV4 "\
             docker run -d --name ipv6nat --cap-drop ALL --cap-add NET_ADMIN --cap-add NET_RAW --network host --restart unless-stopped -v /var/run/docker.sock:/var/run/docker.sock:ro robbertkl/ipv6nat && \
             docker run -d --name traefik --restart=unless-stopped \
-              -e DO_AUTH_TOKEN=$(echo ${{ secrets.ORG_DIGITALOCEAN_DNS_TOKEN }} | base64 -d)\
               -v /var/run/docker.sock:/var/run/docker.sock:ro \
               -v ~/traefik/logs:/var/log/traefik/ \
-              -v ~/traefik/acme.json:/acme.json \
+              -v /root/traefik/certs:/certs/ \
+              -v /root/traefik/keys:/keys/ \
               -v ~/traefik/dynamic_conf.yml:/dynamic_conf.yml \
               --label='traefik.enable=true' \
               --label='traefik.http.routers.api.entrypoints=web,secure' \
               --label='traefik.http.routers.api.middlewares=http-ratelimit@file,secHeaders@file,api_auth' \
               --label='traefik.http.routers.api.rule=Host(\`mv.ackerson.de\`)' \
               --label='traefik.http.routers.api.service=api@internal' \
-              --label='traefik.http.routers.api.tls.certResolver=letsencrypt' \
               --label='traefik.http.routers.api.tls.domains=mv.ackerson.de' \
               --label='traefik.http.routers.https-redirect.rule=HostRegexp(\`{any:.*}\`)' \
               --label='traefik.http.routers.https-redirect.middlewares=https-redirect@docker' \
@@ -88,11 +96,7 @@ jobs:
               --api --providers.docker.exposedByDefault=false --providers.file.filename=/dynamic_conf.yml \
               --entryPoints.web.forwardedHeaders.trustedIPs=172.17.0.1/24,fd00::/80 \
               --entryPoints.secure.forwardedHeaders.trustedIPs=172.17.0.1/24,fd00::/80 \
-              --entrypoints.web.address=:80 --entrypoints.secure.address=:443 \
-              --certificatesResolvers.letsencrypt.acme.email=dan@ackerson.de \
-              --certificatesResolvers.letsencrypt.acme.storage=acme.json \
-              --certificatesResolvers.letsencrypt.acme.dnsChallenge.provider=digitalocean \
-              --certificatesResolvers.letsencrypt.acme.dnsChallenge.delayBeforeCheck=5"
+              --entrypoints.web.address=:80 --entrypoints.secure.address=:443"
 
           vault_dir_prep="$(cat <<-EOF
             mkdir -p /mnt/hetzner_disk/vault_data/config
@@ -104,7 +108,6 @@ jobs:
             if [ ! -d "/mnt/hetzner_disk/vault_data/core" ] ; then
               docker exec -d vault /vault/config/init-vault.sh
             else # if attaching to existing, correct folder permissions and restart
-              sleep 3
               docker exec -d vault chown -Rf vault:vault /vault
               sleep 3
               docker restart vault
@@ -130,7 +133,7 @@ jobs:
 
           ./hetzner_home/hetzner -fn=cleanupDeploy -serverID=$NEW_SERVER_ID -tag=vault
 
-          rm ubuntu_userdata.sh ~/.ssh/* /tmp/new_hetzner_server_params
+          rm ubuntu_userdata.sh *.crt *.key ~/.ssh/* /tmp/new_hetzner_server_params
 
           export SLACK_NOTIFY_TOKEN=$(echo ${{ secrets.ORG_SLACK_NOTIFICATIONS_TOKEN }} | base64 -d)
           curl -s -o /dev/null -X POST -d token=$SLACK_NOTIFY_TOKEN -d channel=C092UE0H4 \
