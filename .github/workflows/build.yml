@@ -27,7 +27,8 @@ jobs:
           export CTX_DIGITALOCEAN_DROPLET_PROXY_TOKEN=$(echo ${{ secrets.ORG_DIGITALOCEAN_DROPLET_PROXY_TOKEN }} | base64 -d)
           export CTX_DIGITALOCEAN_FIREWALL=$(echo ${{ secrets.ORG_DIGITALOCEAN_FIREWALL }} | base64 -d)
 
-          git clone git@github.com:ackersonde/hetzner_home.git
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
+          git clone https://github.com/ackersonde/hetzner_home.git
           cd hetzner_home
           go mod tidy
           go build hetzner.go
@@ -75,10 +76,10 @@ jobs:
             docker run -d --name ipv6nat --cap-drop ALL --cap-add NET_ADMIN --cap-add NET_RAW --network host --restart unless-stopped -v /var/run/docker.sock:/var/run/docker.sock:ro robbertkl/ipv6nat && \
             docker run -d --name traefik --restart=unless-stopped \
               -v /var/run/docker.sock:/var/run/docker.sock:ro \
-              -v ~/traefik/logs:/var/log/traefik/ \
+              -v /root/traefik/logs:/var/log/traefik/ \
               -v /root/traefik/certs:/certs/ \
               -v /root/traefik/keys:/keys/ \
-              -v ~/traefik/dynamic_conf.yml:/dynamic_conf.yml \
+              -v /root/traefik/dynamic_conf.yml:/dynamic_conf.yml \
               --label='traefik.enable=true' \
               --label='traefik.http.routers.api.entrypoints=web,secure' \
               --label='traefik.http.routers.api.middlewares=http-ratelimit@file,secHeaders@file,api_auth' \
